@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "opentelemetry-conformance"
+version = "0.1.0.dev0"
+description = "Runs scenario programs and checks what they emit against semantic conventions, through Weaver live-check."
+requires-python = ">=3.10"
+dependencies = [
+  # opentelemetry.test.weaver_live_check — imported lazily by the session, and
+  # not on PyPI yet, so consumers install the whole OTel stack from git.
+  "opentelemetry-test-utils >= 0.64b0, <1",
+  "PyYAML >= 6.0.2",
+]
+
+# The Python scenario adapter (`otel-conformance-python`) only. The runner
+# itself drives scenarios as subprocesses and needs none of this.
+[project.optional-dependencies]
+pytest = [
+  "pytest >= 8",
+]
+python = [
+  "opentelemetry-api ~= 1.43",
+  "opentelemetry-sdk ~= 1.43",
+  "opentelemetry-exporter-otlp-proto-grpc ~= 1.43",
+]
+
+# Collection only: `pytest` finds a conformance.yaml and runs its scenarios.
+# The plugin is inert unless pytest loads it, so this costs a non-pytest
+# install nothing.
+[project.entry-points.pytest11]
+conformance = "opentelemetry.conformance.pytest_plugin"
+
+[project.scripts]
+otel-conformance = "opentelemetry.conformance._cli:cli"
+otel-conformance-python = "opentelemetry.conformance.python_runner:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/opentelemetry"]

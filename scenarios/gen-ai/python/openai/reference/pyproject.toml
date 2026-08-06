@@ -1,0 +1,17 @@
+[project]
+name = "openai-reference-test"
+version = "0.0.0"
+requires-python = ">=3.12"
+dependencies = [
+    "openai==2.53.0",
+    "opentelemetry-api==1.44.0",
+    "opentelemetry-sdk==1.44.0",
+    "opentelemetry-exporter-otlp-proto-grpc==1.44.0",
+    # `opentelemetry-instrument`, which the scenario runs under. No
+    # instrumentation package: a reference implementation emits its spans by
+    # hand, and zero-code would otherwise load whatever it found installed.
+    "opentelemetry-distro==0.65b0",
+]
+
+[tool.uv]
+package = false

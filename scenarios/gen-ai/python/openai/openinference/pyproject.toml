@@ -1,0 +1,21 @@
+[project]
+name = "openai-openinference-conformance"
+version = "0.0.0"
+requires-python = ">=3.12"
+# The only difference from the `opentelemetry` project next door: zero-code
+# instruments whatever is installed, and this installs OpenInference.
+dependencies = [
+    "openai==2.53.0",
+    "opentelemetry-api==1.44.0",
+    "opentelemetry-sdk==1.44.0",
+    "opentelemetry-exporter-otlp-proto-grpc==1.44.0",
+    "opentelemetry-distro==0.65b0",
+    "openinference-instrumentation-openai==0.1.44",
+    # >=0.1.51 for OPENINFERENCE_ENABLE_GENAI_SEMCONV.
+    "openinference-instrumentation>=0.1.51",
+    # openinference calls wrap_function_wrapper(module=...), dropped in wrapt 2.
+    "wrapt<2",
+]
+
+[tool.uv]
+package = false

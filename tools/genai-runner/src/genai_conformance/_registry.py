@@ -1,0 +1,214 @@
+# Copyright The OpenTelemetry Authors
+# SPDX-License-Identifier: Apache-2.0
+
+"""Provision advice policies and the semconv registry for weaver.
+
+The registry source is ``open-telemetry/semantic-conventions-genai``, fetched
+at the SHA ``versions.env`` pins. Its ``model/manifest.yaml`` names its
+upstream dependency as a git URL, so weaver resolves that itself — this module
+only has to put the genai checkout on disk.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import shutil
+import subprocess
+import tarfile
+import tempfile
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+# Bounds the fetch of the registry tarball so a slow/unreachable GitHub
+# doesn't hang conformance runs until the OS-level socket timeout.
+_FETCH_TIMEOUT_SECONDS = 60
+_VERSION_TIMEOUT_SECONDS = 10
+
+logger = logging.getLogger(__name__)
+
+
+def gen_ai_root() -> Path:
+    """Locate this package's own directory — the pins, policies and config.
+
+    Found by walking up from this file, which requires the package to be
+    installed from a checkout (``pip install -e tools/genai-runner``). That is
+    the only supported install today: nothing in this repo is on PyPI.
+    """
+    here = Path(__file__).resolve()
+    for ancestor in here.parents:
+        if (ancestor / "versions.env").is_file() and (
+            ancestor / "policies"
+        ).is_dir():
+            return ancestor
+    raise RuntimeError(
+        f"Could not locate tools/genai-runner (walked up from {here} looking "
+        "for versions.env + policies/). Install genai-conformance from a "
+        "checkout with `pip install -e tools/genai-runner`."
+    )
+
+
+def _load_version_pins(path: Path) -> dict[str, str]:
+    pins: dict[str, str] = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        key, sep, value = line.partition("=")
+        if not sep:
+            raise RuntimeError(f"Invalid version pin in {path}: {raw_line!r}")
+        pins[key.strip()] = value.strip().strip('"').strip("'")
+    return pins
+
+
+def _cache_dir() -> Path:
+    override = os.environ.get("SEMCONV_CACHE")
+    if override:
+        return Path(override)
+    return Path.home() / ".cache" / "otel-conformance" / "semconv"
+
+
+def _download_and_extract(url: str, target: Path, label: str) -> None:
+    """Download ``url`` (a .tar.gz) and extract its single top-level dir into ``target``."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(
+        dir=str(target.parent), prefix=f"{label}-"
+    ) as tmp:
+        tmp_path = Path(tmp)
+        archive_path = tmp_path / "src.tar.gz"
+        extract_dir = tmp_path / "extract"
+        extract_dir.mkdir()
+
+        logger.info("Fetching %s from %s", label, url)
+        try:
+            with (
+                urllib.request.urlopen(
+                    url, timeout=_FETCH_TIMEOUT_SECONDS
+                ) as response,
+                archive_path.open("wb") as out,
+            ):
+                shutil.copyfileobj(response, out)
+        except (TimeoutError, urllib.error.URLError) as exc:
+            raise RuntimeError(
+                f"Failed to fetch {label} from {url}: {exc}"
+            ) from exc
+        with tarfile.open(archive_path, "r:gz") as archive:
+            archive.extractall(extract_dir, filter="data")
+
+        entries = [p for p in extract_dir.iterdir() if p.is_dir()]
+        if len(entries) != 1:
+            raise RuntimeError(
+                f"Unexpected layout in {label} archive: "
+                f"{[p.name for p in entries]}"
+            )
+        if target.exists():
+            shutil.rmtree(target)
+        shutil.move(str(entries[0]), str(target))
+
+
+def provision_genai_root() -> Path:
+    """Fetch the pinned genai registry into the cache and return its root."""
+    pins = _load_version_pins(gen_ai_root() / "versions.env")
+    try:
+        genai_ref = pins["SEMCONV_GENAI_REF"]
+    except KeyError as missing:
+        raise RuntimeError(
+            f"versions.env is missing required pin {missing!s}"
+        ) from missing
+
+    cache_root = _cache_dir()
+    genai_target = cache_root / f"genai-{genai_ref}"
+    stamp = genai_target / ".provisioned"
+    if stamp.is_file():
+        return genai_target
+
+    cache_root.mkdir(parents=True, exist_ok=True)
+    genai_archive_url = (
+        "https://github.com/open-telemetry/semantic-conventions-genai/"
+        f"archive/{genai_ref}.tar.gz"
+    )
+    _download_and_extract(
+        genai_archive_url, genai_target, label="genai-semconv"
+    )
+    # The manifest names its upstream dependency as a git URL, so weaver
+    # fetches and resolves that itself the first time it reads the registry.
+    stamp.touch()
+    return genai_target
+
+
+def _installed_weaver_version() -> str | None:
+    """``weaver --version`` as a bare version, or None if it can't be read."""
+    weaver = shutil.which("weaver")
+    if weaver is None:
+        return None
+    try:
+        completed = subprocess.run(  # noqa: S603
+            [weaver, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=_VERSION_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if completed.returncode != 0:
+        return None
+    # "weaver 0.25.1" — the pin is written as a release tag, "v0.25.1".
+    words = completed.stdout.split()
+    return words[-1].lstrip("v") if words else None
+
+
+def check_weaver_version() -> None:
+    """Warn when the weaver on PATH isn't the one ``versions.env`` pins.
+
+    A run against a different weaver still works and is often what a
+    maintainer wants, so this reports rather than refuses — but the advice
+    weaver gives is part of what this repo records, so a mismatch explains a
+    data file that moved for no other visible reason.
+    """
+    pinned = _load_version_pins(gen_ai_root() / "versions.env").get(
+        "WEAVER_VERSION"
+    )
+    if pinned is None:
+        return
+    installed = _installed_weaver_version()
+    if installed is not None and installed != pinned.lstrip("v"):
+        logger.warning(
+            "weaver %s is on PATH, but versions.env pins %s — findings and "
+            "coverage may differ from what CI records",
+            installed,
+            pinned,
+        )
+
+
+def policies_dir() -> Path:
+    """Return the ``policies`` directory with the committed advice ``.rego`` files."""
+    return gen_ai_root() / "policies"
+
+
+def advice_data_glob() -> str:
+    """Return a ``weaver --advice-data`` glob of the GenAI content JSON schemas."""
+    source = provision_genai_root() / "model" / "gen-ai"
+    # gen-ai-tool-definitions.json references the external draft-07 meta-schema,
+    # which weaver's rego engine refuses to fetch at eval time; rewrite that one
+    # $ref to a local "type": "object" in place (idempotent).
+    schema = source / "gen-ai-tool-definitions.json"
+    text = schema.read_text(encoding="utf-8")
+    patched = text.replace(
+        '"$ref": "http://json-schema.org/draft-07/schema#"',
+        '"type": "object"',
+    )
+    if patched != text:
+        schema.write_text(patched, encoding="utf-8")
+    return str(source / "*.json")
+
+
+def semconv_registry() -> Path:
+    """Return the path to ``<semantic-conventions-genai>/model`` for the pinned ref."""
+    return provision_genai_root() / "model"
+
+
+def weaver_config_file() -> Path:
+    """Return the path to the shared GenAI ``weaver.toml``."""
+    return gen_ai_root() / "weaver.toml"

@@ -1,0 +1,240 @@
+# Copyright The OpenTelemetry Authors
+# SPDX-License-Identifier: Apache-2.0
+
+"""Scenario expectations vs. the weaver live-check report.
+
+Every check returns failure strings instead of raising, and none of them
+short-circuit: one run reports every problem it found.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Hashable, Mapping, Sequence, cast
+
+from ._spec import (
+    AttributeMatcher,
+    ExpectedViolation,
+    ScenarioSpec,
+    SpanExpectation,
+)
+
+if TYPE_CHECKING:
+    from opentelemetry.test.weaver_live_check import LiveCheckReport
+
+
+@dataclass(frozen=True)
+class ObservedSpan:
+    name: str
+    kind: str
+    attributes: Mapping[str, object]
+
+
+def observed_spans(report: LiveCheckReport) -> list[ObservedSpan]:
+    """One entry per span sample in the report."""
+    return [
+        ObservedSpan(
+            name=entry["span"].get("name", ""),
+            kind=entry["span"].get("kind", ""),
+            attributes={
+                attr["name"]: attr["value"]
+                for attr in entry["span"]["attributes"]
+            },
+        )
+        for entry in report["samples"]
+        if "span" in entry
+    ]
+
+
+def _seen(statistics: Mapping[str, object], *keys: str) -> set[str]:
+    """The names weaver counted at least once under any of ``keys``."""
+    counted: set[str] = set()
+    for key in keys:
+        counts = statistics.get(key)
+        if not isinstance(counts, Mapping):
+            continue
+        counted |= {
+            str(name)
+            for name, count in cast("Mapping[object, object]", counts).items()
+            if count
+        }
+    return counted
+
+
+def seen_metrics(statistics: Mapping[str, object]) -> set[str]:
+    """Every metric name the run produced, registry or not."""
+    return _seen(
+        statistics, "seen_registry_metrics", "seen_non_registry_metrics"
+    )
+
+
+def seen_events(statistics: Mapping[str, object]) -> set[str]:
+    """Every event name the run produced, registry or not."""
+    return _seen(
+        statistics, "seen_registry_events", "seen_non_registry_events"
+    )
+
+
+def check(spec: ScenarioSpec, report: LiveCheckReport) -> list[str]:
+    """Return every way the report fails to match the scenario spec."""
+    statistics = report["statistics"]
+    spans = observed_spans(report)
+    return [
+        *(() if spec.spans is None else _check_spans(spec, spans)),
+        *(
+            ()
+            if spec.metrics is None
+            else _check_names(
+                "metric",
+                expected=set(spec.metrics),
+                seen=seen_metrics(statistics),
+            )
+        ),
+        *(
+            ()
+            if spec.events is None
+            else _check_names(
+                "event",
+                expected=set(spec.events),
+                seen=seen_events(statistics),
+            )
+        ),
+        *_check_violations(spec, report),
+    ]
+
+
+def selects(expectation: SpanExpectation, span: ObservedSpan) -> bool:
+    match = expectation.match
+    return all(
+        span.attributes.get(attribute) == value
+        for attribute, value in match.attributes.items()
+    ) and (match.kind is None or span.kind == match.kind)
+
+
+def _check_spans(
+    spec: ScenarioSpec, spans: Sequence[ObservedSpan]
+) -> list[str]:
+    """Check each declared expectation, and that no span went undeclared."""
+    failures: list[str] = []
+    expectations = spec.spans or ()
+    # Which spans some expectation selected, noted as they are matched: a span
+    # is tested against each expectation once, not once here and again to find
+    # what went undeclared. Indices because a span isn't hashable.
+    selected: set[int] = set()
+
+    for expectation in expectations:
+        matched: list[ObservedSpan] = []
+        for index, span in enumerate(spans):
+            if selects(expectation, span):
+                matched.append(span)
+                selected.add(index)
+        if len(matched) != expectation.count:
+            failures.append(
+                f"{spec.name}: expected {expectation.count} span(s) matching "
+                f"{expectation.describe()}, saw {len(matched)}"
+            )
+        for attribute, matcher in expectation.attributes.items():
+            failure = _check_attribute(matched, attribute, matcher)
+            if failure:
+                failures.append(
+                    f"{spec.name}: {expectation.describe()}: {failure}"
+                )
+
+    undeclared = [
+        span for index, span in enumerate(spans) if index not in selected
+    ]
+    if undeclared:
+        failures.append(
+            f"{spec.name}: {len(undeclared)} undeclared span(s): "
+            f"{sorted({span.name for span in undeclared})}"
+        )
+    return failures
+
+
+def _check_attribute(
+    spans: Sequence[ObservedSpan],
+    attribute: str,
+    matcher: AttributeMatcher,
+) -> str | None:
+    present = [span for span in spans if attribute in span.attributes]
+    values = [span.attributes[attribute] for span in present]
+
+    if matcher.present is not None:
+        if matcher.present and len(present) != len(spans):
+            return f"{attribute} expected on every span, set on {len(present)}/{len(spans)}"
+        if not matcher.present and present:
+            return f"{attribute} expected on no span, set on {len(present)}/{len(spans)}"
+        return None
+
+    if matcher.distinct is not None:
+        distinct = {_hashable(value) for value in values}
+        if len(distinct) != matcher.distinct:
+            return (
+                f"{attribute} expected {matcher.distinct} distinct values, "
+                f"saw {len(distinct)}: {sorted(map(repr, distinct))}"
+            )
+        return None
+
+    mismatched = [value for value in values if value != matcher.equals]
+    if mismatched or len(present) != len(spans):
+        return (
+            f"{attribute} expected {matcher.equals!r} on every span, saw "
+            f"{[span.attributes.get(attribute) for span in spans]}"
+        )
+    return None
+
+
+def _hashable(value: object) -> object:
+    """Attribute values may be lists; key those by their repr so they set."""
+    return value if isinstance(value, Hashable) else repr(value)
+
+
+def _check_names(
+    kind: str, *, expected: set[str], seen: set[str]
+) -> list[str]:
+    """A declared list is exact: nothing missing and nothing extra."""
+    failures: list[str] = []
+    if missing := expected - seen:
+        failures.append(
+            f"expected {kind}s {sorted(missing)} but they were not emitted"
+        )
+    if extra := seen - expected:
+        failures.append(f"undeclared {kind}s emitted: {sorted(extra)}")
+    return failures
+
+
+def _matches(
+    violation: Mapping[str, object], expected: ExpectedViolation
+) -> bool:
+    if violation.get("id") != expected.id:
+        return False
+    if expected.context is None:  # declared without one: any context matches
+        return True
+    return (violation.get("context") or {}) == dict(expected.context)
+
+
+def _check_violations(
+    spec: ScenarioSpec, report: LiveCheckReport
+) -> list[str]:
+    violations = report.violations
+    expected = spec.expected_violations
+    accepted = expected + spec.inherited_violations
+
+    failures = [
+        "undeclared semconv violation — declare it under expected_violations "
+        f"with a reason, or fix it: id={violation.get('id')!r} "
+        f"context={violation.get('context')!r} "
+        f"message={violation.get('message')!r}"
+        for violation in violations
+        if not any(_matches(violation, e) for e in accepted)
+    ]
+    # Only this scenario's own are required to still be reported: one declared
+    # for the whole package is about a gap in general, not about every
+    # scenario reaching it.
+    failures += [
+        f"declared violation is no longer reported — remove it: "
+        f"{e.describe()} ({e.reason})"
+        for e in expected
+        if not any(_matches(violation, e) for violation in violations)
+    ]
+    return failures

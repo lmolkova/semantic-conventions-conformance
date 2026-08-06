@@ -1,0 +1,64 @@
+# DEMO — illustrates the layout only. Not a maintained conformance result, and
+# nobody here maintains this instrumentation.
+#
+# Runs the same ../scenarios programs as the `opentelemetry` implementation
+# next door, and the same set of them — this file and pyproject.toml are the
+# entire difference between the two, which is what makes their data.json
+# comparable.
+#
+# No span or metric expectations: this repo measures rather than tests. The
+# violations below are declared because each one is a divergence someone has
+# looked at and written a reason for.
+library: openai
+
+env:
+  OPENAI_BASE_URL: ${MOCK_SERVER_URL}/v1
+  OPENAI_API_KEY: test_openai_api_key
+  # OpenInference emits `llm.*` / `input.*` of its own by default. This asks it
+  # to emit gen_ai.* *alongside* those, which is what there is to check here.
+  # It's the env-var form of TraceConfig(enable_genai_semconv=True), so the
+  # shared scenario program stays free of any instrumentation-specific setup.
+  OPENINFERENCE_ENABLE_GENAI_SEMCONV: "true"
+
+# Declared once for every scenario: these are properties of the
+# instrumentation, not of any one program it happens to be watching.
+expected_violations:
+  # `enable_genai_semconv` emits gen_ai.* *alongside* OpenInference's own
+  # namespace rather than instead of it. Declared as a class: one gap seen
+  # fifteen times, and which attributes it happens to be says nothing about
+  # the gen_ai output below.
+  - id: missing_attribute
+    reason: OpenInference's own attribute namespace, emitted alongside gen_ai.*.
+
+  # These four are the real gaps in the gen_ai.* output, and the reason this
+  # implementation is worth running: it maps its attributes across but keeps
+  # its own span shape.
+  - id: genai_span_name_format
+    context:
+      operation: chat
+      keyed_attr: gen_ai.request.model
+      expected_form: "chat or 'chat <gen_ai.request.model>'"
+    reason: >-
+      Span is named after the SDK method (ChatCompletion), not
+      '{operation} {model}'.
+  - id: genai_span_kind_unexpected
+    context: {operation: chat, kind: internal}
+    reason: Inference is a remote call, so semconv expects kind=client.
+  - id: genai_expected_attribute_missing
+    context: {operation: chat, missing_attribute: server.address}
+    reason: OpenInference does not record the endpoint it called.
+  - id: genai_span_status_ok_set_by_instrumentation
+    context: {status_code: ok}
+    reason: >-
+      Instrumentation sets status OK; semconv leaves it unset so an
+      application can own it.
+
+scenarios:
+  # `--project .` runs in this directory's own environment, which uv creates
+  # and syncs from pyproject.toml — so this implementation never sees the
+  # instrumentation the one next door installs.
+  inference:
+    run: uv run --frozen --project . opentelemetry-instrument python ../scenarios/inference.py
+
+  tool_calling:
+    run: uv run --frozen --project . opentelemetry-instrument python ../scenarios/tool_calling.py

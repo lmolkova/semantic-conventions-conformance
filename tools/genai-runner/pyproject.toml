@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "genai-conformance"
+version = "0.1.0.dev0"
+description = "Conformance runs against the OpenTelemetry GenAI semantic conventions."
+requires-python = ">=3.10"
+dependencies = [
+  "opentelemetry-conformance",
+  "opentelemetry-genai-mock-server",
+]
+
+# Supplies the session factory to the runner's pytest plugin: installing this
+# package is what makes `pytest` run a scenario directory against the GenAI
+# conventions.
+[project.entry-points.pytest11]
+genai-conformance = "genai_conformance.pytest_plugin"
+
+[project.scripts]
+genai-conformance = "genai_conformance._cli:cli"
+
+# Neither sibling is on PyPI, and this package reads versions.env, policies/
+# and weaver.toml relative to its own source, so install it editable from a
+# checkout.
+[tool.uv.sources]
+opentelemetry-conformance = { path = "../runner", editable = true }
+opentelemetry-genai-mock-server = { path = "../mock-servers/genai", editable = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/genai_conformance"]

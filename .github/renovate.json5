@@ -26,6 +26,18 @@
       ]
     }
   ],
+  "customManagers": [
+    {
+      // gen-ai/versions.env pins weaver and the GenAI registry; each pin
+      // carries its own `# renovate:` comment naming its datasource.
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)versions\\.env$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-]+?) depName=(?<depName>[^\\s]+?)(?: packageName=(?<packageName>[^\\s]+?))?(?: versioning=(?<versioning>[^\\s]+?))?\\s+[A-Z_]+=(?<currentValue>[^\\s]+)"
+      ],
+      "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
+    }
+  ],
   "labels": [
     "dependencies"
   ]

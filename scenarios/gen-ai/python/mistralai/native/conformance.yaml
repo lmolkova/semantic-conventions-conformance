@@ -1,0 +1,47 @@
+# DEMO — illustrates the layout only. Not a maintained conformance result, and
+# nobody here maintains this instrumentation.
+#
+# The `native` flavor: the library instruments itself, so there is no
+# instrumentation package to install — only the SDK's own opt-in below.
+library: mistralai
+
+env:
+  MISTRAL_BASE_URL: ${MOCK_SERVER_URL}
+  # mistralai's tracing is opt-in and off by default. `global` attaches it to
+  # the provider zero-code installed; the alternative, `dedicated`, builds a
+  # provider of its own that ships to Mistral's endpoint, which would export
+  # nothing here.
+  MISTRAL_SDK_TELEMETRY: global
+
+scenarios:
+  # `--project .` runs in this directory's own environment, which uv creates
+  # and syncs from pyproject.toml. The OTel pins there only hold if nothing
+  # else shares the environment.
+  inference:
+    run: uv run --frozen --project . opentelemetry-instrument python ../scenarios/inference.py
+    expected_violations:
+      # The GenAI span doubles as the HTTP client span, so it carries HTTP
+      # attributes too. They're valid upstream semconv, just not in the GenAI
+      # registry this run validates against.
+      - id: missing_attribute
+        context: {attribute_key: http.request.method}
+        reason: Upstream HTTP semconv, outside the GenAI registry.
+      - id: missing_attribute
+        context: {attribute_key: http.response.status_code}
+        reason: Upstream HTTP semconv, outside the GenAI registry.
+      - id: missing_attribute
+        context: {attribute_key: http.url}
+        reason: >-
+          Deprecated upstream attribute (url.full supersedes it), and outside
+          the GenAI spans either way.
+      - id: missing_attribute
+        context: {attribute_key: agent.trace.public}
+        reason: Mistral's own attribute.
+      - id: genai_span_kind_unexpected
+        context: {operation: chat, kind: internal}
+        reason: Inference is a remote call, so semconv expects kind=client.
+      - id: genai_span_status_ok_set_by_instrumentation
+        context: {status_code: ok}
+        reason: >-
+          Instrumentation sets status OK; semconv leaves it unset so an
+          application can own it.

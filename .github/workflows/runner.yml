@@ -1,0 +1,205 @@
+# Two gates. `test` is the tools' own tests — the runner's, the genai wiring's
+# and the mock server's — which need nothing but Python and flask. `scenarios`
+# is the heavy one: it installs weaver and every scenario's dependencies, runs
+# the programs, and checks the committed data.json files still match what they
+# emit.
+name: Runner
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-test-${{ matrix.python-version }}-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        # The bounds the runner declares in runner/pyproject.toml.
+        python-version: ["3.10", "3.14"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # --no-deps throughout: opentelemetry-test-utils isn't on PyPI yet, and
+      # nothing these tests reach imports it — the session imports it lazily,
+      # inside the method that starts weaver. So the real dependencies are
+      # named here instead.
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pyyaml flask
+          python -m pip install --no-deps \
+            -e tools/runner \
+            -e tools/mock-servers/genai \
+            -e tools/genai-runner
+
+      - name: Test
+        run: |
+          python -m pytest \
+            tools/runner/tests \
+            tools/genai-runner/tests \
+            tools/mock-servers/genai/tests
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-lint-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The whole repo: every tool, and the scenarios, which carry their own
+      # per-file ignores in the root pyproject.toml.
+      - name: Run ruff
+        uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89 # v4.1.0
+        with:
+          args: check .
+
+  types:
+    name: Types
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-types-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      # Real dependencies, not --no-deps: pyright reads the installed
+      # packages, and an import it can't resolve turns into errors of its own
+      # all through the file that made it. `semconv_genai` is the one
+      # exception — it ships with the registry, so it exists only after a run
+      # has fetched the pin, and _coverage.py imports it behind a call.
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyright pytest pyyaml flask \
+            opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc \
+            "opentelemetry-test-utils @ git+https://github.com/open-telemetry/opentelemetry-python.git@main#subdirectory=tests/opentelemetry-test-utils"
+          python -m pip install --no-deps \
+            -e tools/runner \
+            -e tools/mock-servers/genai \
+            -e tools/genai-runner
+
+      # The include list lives in pyproject.toml: the typed tools only.
+      - name: Run pyright
+        run: python -m pyright
+
+  scenarios:
+    name: Scenarios
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-scenarios-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      # Every scenario runs `uv run --frozen --project .` in its own
+      # directory, so uv, not pip, installs what the programs need.
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+
+      # The version tools/genai-runner/versions.env pins — the same one the
+      # session warns about when it doesn't match.
+      - name: Install weaver
+        run: |
+          . tools/genai-runner/versions.env
+          url="https://github.com/open-telemetry/weaver/releases/download"
+          curl -fsSL \
+            "$url/$WEAVER_VERSION/weaver-x86_64-unknown-linux-gnu.tar.xz" \
+            | sudo tar -xJ -C /usr/local/bin --strip-components=1 \
+              --wildcards '*/weaver'
+          weaver --version
+
+      # opentelemetry-test-utils carries weaver_live_check and isn't on PyPI,
+      # so it comes from git here.
+      - name: Install the runner
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            "opentelemetry-test-utils @ git+https://github.com/open-telemetry/opentelemetry-python.git@main#subdirectory=tests/opentelemetry-test-utils"
+          python -m pip install \
+            -e tools/runner \
+            -e tools/mock-servers/genai \
+            -e tools/genai-runner
+
+      # The pinned registry and the coverage model resolved from it, once,
+      # shared by every scenario directory.
+      - name: Cache the semconv registry
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/otel-conformance/semconv
+          key: semconv-${{ hashFiles('tools/genai-runner/versions.env') }}
+
+      # --report-only: a semconv finding is a result this repo records, not a
+      # build to break. What must not change silently is data.json, which the
+      # next step diffs.
+      - name: Run every scenario
+        run: |
+          set -euo pipefail
+          mapfile -t directories < <(
+            find scenarios -name conformance.yaml -printf '%h\n' | sort
+          )
+          for directory in "${directories[@]}"; do
+            echo "::group::$directory"
+            genai-conformance "$directory" --report-only
+            echo "::endgroup::"
+          done
+
+      # A run rewrites each directory's data.json. Unchanged means the
+      # committed coverage still matches what the implementations emit;
+      # changed means either an implementation moved or the registry pin did,
+      # and the new file belongs in the PR. The raw reports are gitignored, so
+      # only what a run commits shows up here.
+      - name: Check the committed coverage is up to date
+        run: |
+          if ! git diff --exit-code -- scenarios; then
+            echo "::error::the committed data.json files are out of date — run the scenarios and commit the result"
+            exit 1
+          fi
+
+      - name: Upload the weaver reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: weaver-reports
+          path: scenarios/**/output/weaver-reports/*.json
+          if-no-files-found: warn

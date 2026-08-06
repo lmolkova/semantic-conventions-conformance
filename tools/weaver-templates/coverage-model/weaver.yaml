@@ -1,0 +1,46 @@
+# Copyright The OpenTelemetry Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+# The coverage model: per span type, event and metric, the requirement level
+# of every attribute the registry declares for it.
+#
+# The filter does the work. Under --v2 weaver reports each signal's provider
+# refinements alongside the signal they refine — openai.inference.client
+# refines the gen_ai.inference.client span type — so folding a provider's
+# attributes into the span type that carries them is a merge of one group,
+# the signal's own definition first so that a refinement restating an
+# attribute at a stricter level wins.
+templates:
+  - template: "coverage-model.json.j2"
+    application_mode: single
+    filter: |
+      def level:
+        if type == "string" then .
+        elif type == "object" then (keys[0])
+        # Weaver omits the level for attributes that take the default.
+        else "recommended" end;
+
+      def attributes:
+        [.attributes[]? | {key: .key, value: (.requirement_level | level)}]
+        | from_entries;
+
+      # A signal's own definition has id == the name it declares; its
+      # refinements are named after it and sort after it.
+      def merged($name):
+        reduce (sort_by(.id != $name))[] as $signal ({};
+          . + ($signal | attributes));
+
+      {
+        spans: (.refinements.spans | group_by(.type) | map({
+          key: .[0].type,
+          value: {kind: .[0].kind, attributes: merged(.[0].type)},
+        }) | from_entries),
+        events: (.refinements.events | group_by(.name) | map({
+          key: .[0].name,
+          value: {attributes: merged(.[0].name)},
+        }) | from_entries),
+        metrics: (.refinements.metrics | group_by(.name) | map({
+          key: .[0].name,
+          value: {attributes: merged(.[0].name)},
+        }) | from_entries),
+      }

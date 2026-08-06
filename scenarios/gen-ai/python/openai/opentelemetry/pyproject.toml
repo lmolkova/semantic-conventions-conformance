@@ -1,0 +1,30 @@
+[project]
+name = "openai-opentelemetry-conformance"
+version = "0.0.0"
+requires-python = ">=3.12"
+# Self-contained, and locked: the scenario runs in this project's own
+# environment so a run can't pick up whatever happens to be installed around
+# it. The OTel stack is pinned as one release — a mismatched exporter fails at
+# export time, after the scenario has otherwise run fine, which reads as
+# "emitted nothing" rather than as a broken environment.
+#
+# Only the one instrumentation under test is here: zero-code loads every
+# instrumentor it finds, and someone else's spans would land in the results.
+dependencies = [
+    "openai==2.53.0",
+    "opentelemetry-api==1.44.0",
+    "opentelemetry-sdk==1.44.0",
+    "opentelemetry-exporter-otlp-proto-grpc==1.44.0",
+    "opentelemetry-distro==0.65b0",
+    "opentelemetry-util-genai",
+    "opentelemetry-instrumentation-genai-openai",
+]
+
+# Neither is released; a sibling opentelemetry-python-genai checkout supplies
+# them. Swap for a git ref or a version once they ship.
+[tool.uv.sources]
+opentelemetry-util-genai = { path = "../../../../../../opentelemetry-python-genai/util/opentelemetry-util-genai", editable = true }
+opentelemetry-instrumentation-genai-openai = { path = "../../../../../../opentelemetry-python-genai/instrumentation/opentelemetry-instrumentation-genai-openai", editable = true }
+
+[tool.uv]
+package = false

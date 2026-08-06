@@ -1,0 +1,29 @@
+# DEMO — illustrates the layout only. Copied from
+# semantic-conventions-genai/reference/scenarios/openai, which is still where
+# this implementation is maintained.
+#
+# The registry, the advice policies and the mock LLM server come from
+# `genai-conformance`; declare `weaver:` or `server:` here only to override
+# them.
+#
+# No span or metric expectations: this repo measures rather than tests, so
+# what the run produced lands in data.json. Declare `expected_violations:` here
+# for any gap someone has looked at and written down — a declared violation
+# weaver stops reporting fails too, so the list can't outlive its gaps.
+#
+# Unlike the other implementations under this library, `reference` runs its own
+# program rather than ../scenarios: the reference implementation *is* the
+# instrumentation, written inline around the library calls, so there is nothing
+# to share.
+library: openai
+
+env:
+  # What the reference scenarios read; the runner fills in the server it started.
+  MOCK_LLM_URL: ${MOCK_SERVER_URL}
+
+scenarios:
+  scenario:
+    # One program covering every operation the library owns, as the semconv
+    # repo wrote it. New scenarios should be one operation each instead.
+    # --frozen: run the committed lock, never relock it.
+    run: uv run --frozen --project . opentelemetry-instrument python scenario.py
