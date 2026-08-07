@@ -38,6 +38,19 @@ instrumentation produced the telemetry — `opentelemetry`, `openinference`,
 `reference` (the hand-written implementation the semconv repo maintains), or
 `native` when the library instruments itself.
 
+Those directory names are short labels for reading the tree. What a run is
+actually about is declared in each `conformance.yaml`, where `library:` and
+`instrumentation:` name the real packages:
+
+```yaml
+instrumented_library: openai
+instrumentation_library: opentelemetry-instrumentation-genai-openai
+```
+
+Nothing derives one from the other: the runner never reads a path for meaning,
+so a directory can be renamed or a scenario moved without changing what the
+results say produced them.
+
 **The programs live once, under the library.** Every implementation runs the
 same file:
 
@@ -71,8 +84,10 @@ here does.** Those are tests, and a test belongs with the instrumentation it
 covers — `opentelemetry-python-genai` for the `opentelemetry` implementation,
 `semantic-conventions-genai` for `reference`. What this repo owns is the
 measurement: run the programs, record what came out, report where it diverges
-from the conventions. Runs are `--report-only` for the same reason — a finding
-is a result to read, not a build to break.
+from the conventions. Runs are `--report-only` for the same reason — a
+semconv finding is a result to read, not a build to break. A scenario that
+crashed or missed something it declared still fails: that is the harness
+saying it has no measurement to report.
 
 `expected_violations` is the exception, and stays. A divergence someone has
 looked at and written a reason for is a different fact from one nobody has seen

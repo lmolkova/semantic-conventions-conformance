@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from opentelemetry.conformance._checks import check
+from opentelemetry.conformance._checks import check as _check
 from opentelemetry.conformance._coverage import coverage
 from opentelemetry.conformance._spec import (
     AttributeMatcher,
@@ -57,6 +57,11 @@ class Report(dict[str, Any]):
     ) -> None:
         super().__init__(samples=samples or [], statistics=statistics or {})
         self.violations = violations or []
+
+
+def check(spec: ScenarioSpec, report: Any) -> list[str]:
+    """Both kinds of finding; the split has its own tests below."""
+    return _check(spec, report).all()
 
 
 def scenario(**kwargs: Any) -> ScenarioSpec:
@@ -244,7 +249,9 @@ def test_undeclared_violation_fails() -> None:
     )
 
     (failure,) = check(scenario(), report)
-    assert "undeclared semconv violation" in failure
+    assert failure == (
+        "[genai_expected_attribute_missing] server.address is missing"
+    )
 
 
 def test_declared_violation_is_accepted_then_required() -> None:
@@ -290,6 +297,19 @@ def test_violation_context_must_match_in_full() -> None:
     )  # the undeclared one, and the declared one missing
 
 
+def test_violations_are_kept_apart_from_failures() -> None:
+    report = Report(
+        samples=[],
+        violations=[{"id": "genai_expected_attribute_missing"}],
+    )
+
+    findings = _check(scenario(spans=(CHAT,)), report)
+    (mismatch,) = findings.failures
+    assert "matching" in mismatch
+    # No message and no context: the id is all there is to say.
+    assert findings.violations == ["[genai_expected_attribute_missing]"]
+
+
 def test_coverage_reduces_a_run(tmp_path: Path) -> None:
     (tmp_path / "inference.json").write_text(
         json.dumps(
@@ -312,7 +332,8 @@ def test_coverage_reduces_a_run(tmp_path: Path) -> None:
         )
     )
     spec = PackageSpec(
-        library="demo",
+        instrumented_library="demo",
+        instrumentation_library="demo-instrumentation",
         directory=tmp_path,
         env={},
         weaver=WeaverSpec(),
@@ -461,7 +482,8 @@ def _report_with(*samples: dict[str, Any]) -> str:
 
 def _package(tmp_path: Path, **scenario_kwargs: Any) -> PackageSpec:
     return PackageSpec(
-        library="demo",
+        instrumented_library="demo",
+        instrumentation_library="demo-instrumentation",
         directory=tmp_path,
         env={},
         weaver=WeaverSpec(),

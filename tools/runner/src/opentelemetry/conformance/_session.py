@@ -12,10 +12,11 @@ the caller decides what it means. A broken harness still raises.
 from __future__ import annotations
 
 import json
+import logging
 import shlex
 import subprocess
 from contextlib import AbstractContextManager, ExitStack, contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from string import Template
 from types import TracebackType
@@ -60,6 +61,23 @@ DEFAULT_REPORT_DIR = Path("output") / "weaver-reports"
 DEFAULT_DATA_FILE = Path("output") / "data.json"
 
 
+@contextmanager
+def _quiet_connection_retries() -> Generator[None, None, None]:
+    """Silence urllib3's per-retry warning while weaver is coming up.
+
+    Its ``/health`` is polled through a retrying session, so every refused
+    connection before weaver binds its port is logged as a warning. That is
+    the wait working, not a problem to report.
+    """
+    logger = logging.getLogger("urllib3.connectionpool")
+    previous = logger.level
+    logger.setLevel(logging.ERROR)
+    try:
+        yield
+    finally:
+        logger.setLevel(previous)
+
+
 class SessionFactory(Protocol):
     """What ``conformance_session`` is, as a type.
 
@@ -88,6 +106,7 @@ class ScenarioReport:
 
     name: str
     failures: list[str]
+    violations: list[str] = field(default_factory=list)
     report: LiveCheckReport | None = None
     stdout: str = ""
     stderr: str = ""
@@ -150,7 +169,7 @@ class ConformanceSession:
                 self._resolve_path(weaver_spec.advice_data),
             ]
 
-        with WeaverLiveCheck(
+        with _quiet_connection_retries(), WeaverLiveCheck(
             inactivity_timeout=int(timeout_seconds(*_WEAVER_INACTIVITY_TIMEOUT)),
             registry=self._resolve_path(self._registry),
             policies_dir=self._resolve_path(weaver_spec.policies)
@@ -174,10 +193,12 @@ class ConformanceSession:
                 f"--- stdout ---\n{completed.stdout}\n"
                 f"--- stderr ---\n{completed.stderr}"
             )
-        failures += check(scenario, report)
+        findings = check(scenario, report)
+        failures += findings.failures
         return ScenarioReport(
             name=name,
             failures=failures,
+            violations=findings.violations,
             report=report,
             stdout=completed.stdout,
             stderr=completed.stderr,

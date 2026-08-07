@@ -5,9 +5,7 @@ Runs scenario programs, collects what they emit through
 against expectations you declare in YAML. It carries no semantic conventions
 of its own — you tell it which registry and policies to validate against.
 
-Not on PyPI yet: it needs `opentelemetry.test.weaver_live_check`, which hasn't
-been released. Install it from a checkout — `pip install -e tools/runner[python]` —
-with the OpenTelemetry stack pinned from git.
+Not on PyPI yet — install it from a checkout: `pip install -e tools/runner[python]`.
 
 For the GenAI conventions, [`genai-runner`](../genai-runner) wraps
 this with the registry, policies and mock LLM server already wired up.
@@ -31,6 +29,20 @@ OpenAI().chat.completions.create(
 
 That the scenario says nothing about instrumentation is what lets the same
 program be run against several implementations of it.
+
+Which implementation *this* directory is, then, is the one thing the programs
+can't say. Two required keys say it:
+
+```yaml
+# what the scenarios exercise
+instrumented_library: openai
+# what is under test
+instrumentation_library: opentelemetry-instrumentation-genai-openai
+```
+
+Both are declared rather than read off the directory layout: the runner never
+reads a path for meaning, a directory is a slug where these name real packages,
+and a data file that travels out of its checkout still says what produced it.
 
 **Write one scenario per thing you want to know about** — one operation, one
 code path. A single scenario that exercises everything can only tell you that
@@ -95,6 +107,10 @@ otel-conformance scenarios/ --registry …/model --policies …/policies
 otel-conformance scenarios/ --scenario inference   # just this one
 ```
 
+Each scenario prints one line — green `✔`, yellow `▲` for a violation under
+`--report-only`, red `✖` — with the findings under it. Colour follows
+`NO_COLOR`/`FORCE_COLOR` and is off when stdout isn't a terminal.
+
 or as a library, when you want the results rather than an exit code:
 
 ```python
@@ -103,16 +119,21 @@ with conformance_session(directory) as session:
     print(report.failures)
 ```
 
-Anything the scenario got wrong — a mismatch, an undeclared violation, a
-crash, a command that won't start or overruns — lands in `report.failures`
-rather than raising, and the weaver report is written out before anything is
-checked. (Problems with the harness itself still raise: an unknown scenario
-name, a registry that won't load, a missing `weaver` binary.) Deciding what a
-failure means is the caller's job, which is what makes two things easy:
+Anything the scenario got wrong — a mismatch, a crash, a command that won't
+start or overruns — lands in `report.failures` rather than raising, and what
+it emitted that departs from the conventions lands in `report.violations`,
+kept apart because callers weigh the two differently. The weaver report is
+written out before anything is checked. (Problems with the harness itself
+still raise: an unknown scenario name, a registry that won't load, a missing
+`weaver` binary.) Deciding what a finding means is the caller's job, which is
+what makes two things easy:
 
-- **Collecting data without failing.** Run every scenario, log the failures,
-  exit 0 — `--report-only` on the command line. Useful for measuring attribute
-  coverage across a whole repo, or for checking implementations you don't own.
+- **Collecting data without failing.** Run every scenario and report semconv
+  violations as warnings — `--report-only` on the command line. Useful for
+  measuring attribute coverage across a whole repo, or for checking
+  implementations you don't own. It only softens `report.violations`; a
+  scenario that crashed, missed a declared span or broke `--data-command`
+  still exits 1, because then there is nothing to measure.
 - **Bringing up a new scenario.** Declare it with no expectations, run it,
   read the dumped report, and write the expectations from what you see.
 
@@ -152,7 +173,8 @@ about what a scenario produces, which is what turns it from a smoke test into
 a check:
 
 ```yaml
-library: openai
+instrumented_library: openai
+instrumentation_library: opentelemetry-instrumentation-genai-openai
 
 env:
   OPENAI_BASE_URL: ${MOCK_SERVER_URL}/v1
@@ -251,7 +273,8 @@ Declare them at the top level instead, and every scenario gets them — the righ
 place for a gap that belongs to the instrumentation rather than to one program:
 
 ```yaml
-library: openai
+instrumented_library: openai
+instrumentation_library: opentelemetry-instrumentation-genai-openai
 
 expected_violations:
   - id: genai_span_kind_unexpected
@@ -287,11 +310,12 @@ scenarios as `${MOCK_SERVER_URL}`.
 
 `--data-command` replaces the built-in coverage reduction with a shell command
 run after a complete (unfiltered) run: `"$1"` is the report directory, `"$2"`
-the library name, and the JSON it prints becomes the data file. A non-zero exit
-or output that isn't JSON fails the run.
+the instrumented library, `"$3"` the instrumentation library, and the JSON it
+prints becomes the data file. A non-zero exit or output that isn't JSON fails
+the run.
 
 ```sh
---data-command 'jq -s --arg lib "$2" "{(\$lib): [.[].samples[].span.name]}" "$1"/*.json'
+--data-command 'jq -s --arg impl "$3" "{(\$impl): [.[].samples[].span.name]}" "$1"/*.json'
 ```
 
 A package overrides any of it by declaring `weaver:` or `server:` itself,

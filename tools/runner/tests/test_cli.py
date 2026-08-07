@@ -29,14 +29,16 @@ from opentelemetry.conformance import (
 from opentelemetry.conformance._cli import _DataCommandError, main
 from opentelemetry.conformance._session import ConformanceSession
 
-# Emits {"library": …, "reports": …} from the two inputs and a glob.
+# Emits {"library": …, "instrumentation": …, "reports": …} from the three
+# inputs and a glob.
 DATA_COMMAND = (
-    r"""printf '{"library": "%s", "reports": %s}' """
-    r'"$2" "$(ls "$1"/*.json | wc -l)"'
+    r"""printf '{"library": "%s", "instrumentation": "%s", "reports": %s}' """
+    r'"$2" "$3" "$(ls "$1"/*.json | wc -l)"'
 )
 
 SPEC = """
-library: demo
+instrumented_library: demo
+instrumentation_library: demo-instrumentation
 scenarios:
   inference:
     run: python inference.py
@@ -48,16 +50,22 @@ scenarios:
 class FakeSession:
     """Records what ran; never starts weaver or a server."""
 
-    def __init__(self, spec: PackageSpec, failing: set[str]) -> None:
+    def __init__(
+        self, spec: PackageSpec, failing: set[str], violating: set[str]
+    ) -> None:
         self.spec = spec
         self.ran: list[str] = []
         self._failing = failing
+        self._violating = violating
 
     def run(self, name: str) -> ScenarioReport:
         self.ran.append(name)
         return ScenarioReport(
             name=name,
             failures=[f"{name}: nope"] if name in self._failing else [],
+            violations=[f"{name} is missing server.address, id=some_advice"]
+            if name in self._violating
+            else [],
         )
 
 
@@ -72,6 +80,7 @@ def factory(
     calls: list[dict[str, Any]],
     failing: set[str] | None = None,
     *,
+    violating: set[str] | None = None,
     reduce_on_close: bool = False,
 ) -> Callable[..., Any]:
     @contextmanager
@@ -79,7 +88,9 @@ def factory(
         directory: Path | str, **kwargs: Any
     ) -> Iterator[FakeSession]:
         calls.append({"directory": directory, **kwargs})
-        session = FakeSession(load_spec(Path(directory)), failing or set())
+        session = FakeSession(
+            load_spec(Path(directory)), failing or set(), violating or set()
+        )
         sessions.append(session)
         yield session
         # What the real session does on the way out of the block.
@@ -120,13 +131,45 @@ def test_failures_become_a_non_zero_exit(directory: Path) -> None:
     )
 
 
-def test_report_only_still_exits_zero(directory: Path) -> None:
+def test_report_only_warns_about_violations(
+    directory: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert (
+        main(
+            [str(directory), "--report-only"],
+            session=factory([], [], violating={"inference"}),
+        )
+        == 0
+    )
+    out = capsys.readouterr().out
+    assert "scenario: inference, status: WARN" in out
+    assert "Violations:" in out
+    assert "is missing server.address" in out
+
+
+def test_colour_follows_the_environment(
+    directory: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    main([str(directory)], session=factory([], [], failing={"inference"}))
+    assert "\033[31m✖ scenario: inference, status: FAIL" in (
+        capsys.readouterr().out
+    )
+
+    monkeypatch.setenv("NO_COLOR", "1")
+    main([str(directory)], session=factory([], [], failing={"inference"}))
+    assert "\033[" not in capsys.readouterr().out
+
+
+def test_report_only_still_fails_on_a_broken_scenario(directory: Path) -> None:
     assert (
         main(
             [str(directory), "--report-only"],
             session=factory([], [], failing={"inference"}),
         )
-        == 0
+        == 1
     )
 
 
@@ -189,8 +232,9 @@ def test_the_session_factory_chooses_the_reduction(directory: Path) -> None:
 def test_data_command_runs_in_a_shell(directory: Path, tmp_path: Path) -> None:
     """It is handed a directory, so it has to be able to glob it.
 
-    The report directory arrives as ``$1`` and the library as ``$2``, which is
-    what lets a one-liner stand in for a reduction script.
+    The report directory arrives as ``$1``, the library as ``$2`` and the
+    instrumentation as ``$3``, which is what lets a one-liner stand in for a
+    reduction script.
     """
     reports = tmp_path / "reports"
     reports.mkdir()
@@ -205,6 +249,7 @@ def test_data_command_runs_in_a_shell(directory: Path, tmp_path: Path) -> None:
 
     assert calls[0]["build_data"](reports, load_spec(directory)) == {
         "library": "demo",
+        "instrumentation": "demo-instrumentation",
         "reports": 2,
     }
 
@@ -243,7 +288,7 @@ def test_a_broken_data_command_fails_the_run(
 
     assert exit_code == 1
     printed = capsys.readouterr().out
-    assert "ok   inference" in printed
+    assert "scenario: inference, status: ok" in printed
     assert "FAIL --data-command exited with 2" in printed
 
 

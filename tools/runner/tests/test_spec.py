@@ -24,7 +24,8 @@ from opentelemetry.conformance import (
 )
 
 MINIMAL = """
-library: demo
+instrumented_library: demo
+instrumentation_library: demo-instrumentation
 scenarios:
   inference:
     run: python inference.py
@@ -41,7 +42,8 @@ def test_minimal_spec_leaves_every_expectation_unchecked(
 ) -> None:
     spec = load_spec(write(tmp_path, MINIMAL))
 
-    assert spec.library == "demo"
+    assert spec.instrumented_library == "demo"
+    assert spec.instrumentation_library == "demo-instrumentation"
     scenario = spec.scenarios["inference"]
     assert scenario.run == ("python", "inference.py")
     assert scenario.spans is None
@@ -73,7 +75,8 @@ def test_scenarios_keeps_declaration_order(tmp_path: Path) -> None:
     directory = write(
         tmp_path,
         """
-library: demo
+instrumented_library: demo
+instrumentation_library: demo-instrumentation
 scenarios:
   zebra:
     run: python zebra.py
@@ -90,7 +93,8 @@ def test_command_may_be_a_list(tmp_path: Path) -> None:
         write(
             tmp_path,
             """
-library: demo
+instrumented_library: demo
+instrumentation_library: demo-instrumentation
 scenarios:
   inference:
     run: ["python", "a b.py"]
@@ -151,61 +155,72 @@ def test_span_keys_survive_separators_in_a_value() -> None:
 @pytest.mark.parametrize(
     ("document", "message"),
     [
-        pytest.param("scenarios: {}", "library", id="no-library"),
-        pytest.param("library: demo", "no scenarios", id="no-scenarios"),
         pytest.param(
-            "library: demo\nscenarios:\n  a: {}",
+            "scenarios: {}", "instrumented_library", id="no-library"
+        ),
+        pytest.param(
+            "instrumented_library: demo\nscenarios:\n  a:\n    run: x",
+            "instrumentation_library",
+            id="no-instrumentation-library",
+        ),
+        pytest.param(
+            "instrumented_library: demo\ninstrumentation_library: demo-instrumentation",
+            "no scenarios",
+            id="no-scenarios",
+        ),
+        pytest.param(
+            "instrumented_library: demo\ninstrumentation_library: demo-instrumentation\nscenarios:\n  a: {}",
             "run is required",
             id="scenario-without-run",
         ),
         pytest.param(
-            "library: demo\nnonsense: 1\nscenarios:\n  a:\n    run: x",
+            "instrumented_library: demo\ninstrumentation_library: demo-instrumentation\nnonsense: 1\nscenarios:\n  a:\n    run: x",
             "unknown key",
             id="unknown-top-level-key",
         ),
         pytest.param(
-            "library: demo\nscenarios:\n  a:\n    run: x\n    span: []",
+            "instrumented_library: demo\ninstrumentation_library: demo-instrumentation\nscenarios:\n  a:\n    run: x\n    span: []",
             "unknown key",
             id="misspelled-scenario-key",
         ),
         pytest.param(
-            "library: demo\nenv:\n  PORT: 8080\nscenarios:\n  a:\n    run: x",
+            "instrumented_library: demo\ninstrumentation_library: demo-instrumentation\nenv:\n  PORT: 8080\nscenarios:\n  a:\n    run: x",
             "must be strings",
             id="unquoted-env-number",
         ),
         pytest.param(
-            "library: demo\nscenarios:\n  a:\n    run: x\n"
+            "instrumented_library: demo\ninstrumentation_library: demo-instrumentation\nscenarios:\n  a:\n    run: x\n"
             "    spans:\n      - expect: {count: 1}",
             "match is required",
             id="span-without-match",
         ),
         pytest.param(
-            "library: demo\nscenarios:\n  a:\n    run: x\n"
+            "instrumented_library: demo\ninstrumentation_library: demo-instrumentation\nscenarios:\n  a:\n    run: x\n"
             "    spans:\n      - match:\n          attributes: {}\n"
             "        expect: {count: 1}",
             "at least one thing to match on",
             id="empty-match",
         ),
         pytest.param(
-            "library: demo\nscenarios:\n  a:\n    run: x\n"
+            "instrumented_library: demo\ninstrumentation_library: demo-instrumentation\nscenarios:\n  a:\n    run: x\n"
             "    spans:\n      - match:\n          kind: CLIENT\n"
             "        expect: {}",
             "count is required",
             id="span-without-count",
         ),
         pytest.param(
-            "library: demo\nscenarios:\n  a:\n    run: x\n"
+            "instrumented_library: demo\ninstrumentation_library: demo-instrumentation\nscenarios:\n  a:\n    run: x\n"
             "    expected_violations:\n      - id: some_advice",
             "reason is required",
             id="violation-without-reason",
         ),
         pytest.param(
-            "library: demo\nscenarios:\n  a:\n    run: x\n    events: notalist",
+            "instrumented_library: demo\ninstrumentation_library: demo-instrumentation\nscenarios:\n  a:\n    run: x\n    events: notalist",
             "expected a list",
             id="events-not-a-list",
         ),
         pytest.param(
-            "library: demo\nserver:\n  port: 8080\nscenarios:\n"
+            "instrumented_library: demo\ninstrumentation_library: demo-instrumentation\nserver:\n  port: 8080\nscenarios:\n"
             "  a:\n    run: x",
             "unknown key",
             id="unknown-server-key",
@@ -282,7 +297,8 @@ def test_server_block_may_declare_only_a_health_path(tmp_path: Path) -> None:
         write(
             tmp_path,
             """
-library: demo
+instrumented_library: demo
+instrumentation_library: demo-instrumentation
 server:
   health: /ready
 scenarios:
@@ -304,7 +320,8 @@ def test_a_violation_context_is_optional_and_distinct_from_an_empty_one(
         write(
             tmp_path,
             """
-library: demo
+instrumented_library: demo
+instrumentation_library: demo-instrumentation
 scenarios:
   inference:
     run: x
@@ -328,7 +345,8 @@ scenarios:
 
 
 PACKAGE_VIOLATIONS = """
-library: demo
+instrumented_library: demo
+instrumentation_library: demo-instrumentation
 expected_violations:
   - id: missing_attribute
     reason: the implementation's own namespace, everywhere
@@ -370,7 +388,8 @@ def test_redeclaring_a_package_violation_in_a_scenario_is_an_error(
 ) -> None:
     """Two reasons for one id, and no way to tell which still applies."""
     document = """
-library: demo
+instrumented_library: demo
+instrumentation_library: demo-instrumentation
 expected_violations:
   - id: missing_attribute
     reason: everywhere

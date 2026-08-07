@@ -15,7 +15,8 @@
 # program rather than ../scenarios: the reference implementation *is* the
 # instrumentation, written inline around the library calls, so there is nothing
 # to share.
-library: openai
+instrumented_library: openai
+instrumentation_library: semconv-genai-reference
 
 env:
   # What the reference scenarios read; the runner fills in the server it started.

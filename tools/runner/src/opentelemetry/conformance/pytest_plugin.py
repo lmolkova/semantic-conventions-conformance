@@ -82,8 +82,9 @@ class ConformanceItem(pytest.Item):
     def runtest(self) -> None:
         session = _session_for(self.config, self.path.parent)
         report = session.run(self.name)
-        if report.failures:
-            raise ConformanceFailure("\n".join(report.failures))
+        problems = [*report.failures, *report.violations]
+        if problems:
+            raise ConformanceFailure("\n".join(problems))
 
     def repr_failure(self, excinfo: Any, style: Any = None) -> str:
         if isinstance(excinfo.value, ConformanceFailure):

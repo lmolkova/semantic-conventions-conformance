@@ -117,8 +117,8 @@ class ExpectedViolation:
 
     def describe(self) -> str:
         if self.context is None:
-            return f"id={self.id!r} (any context)"
-        return f"id={self.id!r} context={dict(self.context)!r}"
+            return f"[{self.id}] any context"
+        return f"[{self.id}] context={dict(self.context)!r}"
 
 
 @dataclass(frozen=True)
@@ -215,7 +215,12 @@ class ServerSpec:
 
 @dataclass(frozen=True)
 class PackageSpec:
-    library: str
+    # What the run is about: the library being exercised, and the
+    # instrumentation under test. Both are declared rather than read off the
+    # directory layout — the runner never reads the path for meaning, and a
+    # directory is a slug where these name a real package.
+    instrumented_library: str
+    instrumentation_library: str
     directory: Path
     env: Mapping[str, str]
     weaver: WeaverSpec
@@ -476,7 +481,8 @@ def load_spec(directory: Path) -> PackageSpec:
     _check_keys(
         document,
         (
-            "library",
+            "instrumented_library",
+            "instrumentation_library",
             "env",
             "weaver",
             "server",
@@ -487,7 +493,12 @@ def load_spec(directory: Path) -> PackageSpec:
         str(path),
     )
 
-    library = _required_string(document, "library", str(path))
+    instrumented = _required_string(
+        document, "instrumented_library", str(path)
+    )
+    instrumentation = _required_string(
+        document, "instrumentation_library", str(path)
+    )
 
     declared = _require_mapping(
         document.get("scenarios") or {}, f"{path}.scenarios"
@@ -506,7 +517,8 @@ def load_spec(directory: Path) -> PackageSpec:
     )
 
     return PackageSpec(
-        library=library,
+        instrumented_library=instrumented,
+        instrumentation_library=instrumentation,
         directory=directory,
         env=_parse_env(document.get("env"), f"{path}.env"),
         weaver=_parse_weaver(document.get("weaver"), f"{path}.weaver"),

@@ -16,7 +16,8 @@ import pytest
 pytest_plugins = ["pytester"]
 
 SPEC = """
-library: demo
+instrumented_library: demo
+instrumentation_library: demo-instrumentation
 scenarios:
   inference:
     run: python inference.py
@@ -106,7 +107,7 @@ def test_one_session_is_shared_by_a_directory(pytester, scenarios) -> None:
 def test_a_broken_spec_is_a_collection_error(pytester, scenarios) -> None:
     scenarios()
     pytester.makefile(
-        ".yaml", **{"conformance/conformance": "library: demo\n"}
+        ".yaml", **{"conformance/conformance": "instrumented_library: demo\ninstrumentation_library: demo-instrumentation\n"}
     )
 
     result = pytester.runpytest()

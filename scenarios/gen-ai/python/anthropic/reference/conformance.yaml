@@ -6,7 +6,8 @@
 # program rather than ../scenarios: the reference implementation *is* the
 # instrumentation, written inline around the library calls, so there is nothing
 # to share.
-library: anthropic
+instrumented_library: anthropic
+instrumentation_library: semconv-genai-reference
 
 env:
   MOCK_LLM_URL: ${MOCK_SERVER_URL}

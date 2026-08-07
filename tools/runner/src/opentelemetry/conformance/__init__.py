@@ -19,12 +19,13 @@ to. The core is a plain library that owns the server and weaver lifecycles::
     with conformance_session(conformance_dir) as session:
         report = session.run("inference")
 
-``run`` returns rather than raises whatever the scenario got wrong — an
-undeclared violation, a count mismatch, a crash — landing it in
-``report.failures``; only a broken harness (an unknown scenario name, a
-registry that won't load) raises. pytest asserts on the failures, the CLI
-turns them into an exit code, and calling the library directly gives a full
-report and no failure signal, which is the recording workflow.
+``run`` returns rather than raises whatever the scenario got wrong — a count
+mismatch, a crash — in ``report.failures``, and what it emitted that departs
+from the conventions in ``report.violations``; only a broken harness (an
+unknown scenario name, a registry that won't load) raises. pytest asserts on
+both, the CLI turns them into an exit code (``--report-only`` warns about the
+violations), and calling the library directly gives a full report and no
+failure signal, which is the recording workflow.
 """
 
 from ._cli import main

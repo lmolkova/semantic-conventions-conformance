@@ -10,7 +10,8 @@
 #
 # The programs live in ../scenarios and are shared with every other
 # implementation under openai/; this file only says how to run them.
-library: openai
+instrumented_library: openai
+instrumentation_library: opentelemetry-instrumentation-genai-openai
 
 env:
   OPENAI_BASE_URL: ${MOCK_SERVER_URL}/v1

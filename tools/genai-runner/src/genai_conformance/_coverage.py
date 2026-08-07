@@ -280,7 +280,7 @@ def _data(result: Any) -> dict[str, object]:
 def genai_coverage(report_dir: Path, spec: PackageSpec) -> object:
     """Reduce a run's weaver reports the way the GenAI conventions read them."""
     parse_result_dir = _parse_results().parse_result_dir
-    result = parse_result_dir(report_dir, spec.library, _classify)
+    result = parse_result_dir(report_dir, spec.instrumented_library, _classify)
     if result is None:
         raise RuntimeError(
             f"no weaver reports to reduce under {report_dir} — the run "

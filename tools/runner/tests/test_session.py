@@ -32,7 +32,8 @@ from opentelemetry.conformance._session import (
 )
 
 SPEC = """
-library: demo
+instrumented_library: demo
+instrumentation_library: demo-instrumentation
 scenarios:
   inference:
     run: python inference.py
@@ -107,7 +108,7 @@ def session(
         env={},
         data_file=data_file,
         build_data=lambda reports, spec: {
-            "library": spec.library,
+            "library": spec.instrumented_library,
             "reports": reports.name,
         },
     )

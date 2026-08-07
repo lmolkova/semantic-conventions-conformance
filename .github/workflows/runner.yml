@@ -39,10 +39,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      # --no-deps throughout: opentelemetry-test-utils isn't on PyPI yet, and
-      # nothing these tests reach imports it — the session imports it lazily,
-      # inside the method that starts weaver. So the real dependencies are
-      # named here instead.
+      # --no-deps throughout: nothing these tests reach imports
+      # opentelemetry-test-utils — the session imports it lazily, inside the
+      # method that starts weaver — so this job skips the whole OTel stack and
+      # names what it does need instead.
       - name: Install
         run: |
           python -m pip install --upgrade pip
@@ -105,7 +105,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install pyright pytest pyyaml flask \
             opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc \
-            "opentelemetry-test-utils @ git+https://github.com/open-telemetry/opentelemetry-python.git@main#subdirectory=tests/opentelemetry-test-utils"
+            opentelemetry-test-utils
           python -m pip install --no-deps \
             -e tools/runner \
             -e tools/mock-servers/genai \
@@ -149,13 +149,9 @@ jobs:
               --wildcards '*/weaver'
           weaver --version
 
-      # opentelemetry-test-utils carries weaver_live_check and isn't on PyPI,
-      # so it comes from git here.
       - name: Install the runner
         run: |
           python -m pip install --upgrade pip
-          python -m pip install \
-            "opentelemetry-test-utils @ git+https://github.com/open-telemetry/opentelemetry-python.git@main#subdirectory=tests/opentelemetry-test-utils"
           python -m pip install \
             -e tools/runner \
             -e tools/mock-servers/genai \
@@ -173,6 +169,8 @@ jobs:
       # build to break. What must not change silently is data.json, which the
       # next step diffs.
       - name: Run every scenario
+        env:
+          FORCE_COLOR: "1" # the log renders ANSI; the step's stdout is no tty
         run: |
           set -euo pipefail
           mapfile -t directories < <(

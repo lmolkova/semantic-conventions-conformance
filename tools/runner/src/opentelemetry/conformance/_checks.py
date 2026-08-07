@@ -75,32 +75,50 @@ def seen_events(statistics: Mapping[str, object]) -> set[str]:
     )
 
 
-def check(spec: ScenarioSpec, report: LiveCheckReport) -> list[str]:
+@dataclass(frozen=True)
+class Findings:
+    """Two kinds of problem, kept apart because callers weigh them apart.
+
+    ``failures`` mean the scenario didn't do its job. ``violations`` mean it
+    did, and what it produced departs from the conventions — a result a caller
+    may want to record rather than fail on.
+    """
+
+    failures: list[str]
+    violations: list[str]
+
+    def all(self) -> list[str]:
+        return [*self.failures, *self.violations]
+
+
+def check(spec: ScenarioSpec, report: LiveCheckReport) -> Findings:
     """Return every way the report fails to match the scenario spec."""
     statistics = report["statistics"]
     spans = observed_spans(report)
-    return [
-        *(() if spec.spans is None else _check_spans(spec, spans)),
-        *(
-            ()
-            if spec.metrics is None
-            else _check_names(
-                "metric",
-                expected=set(spec.metrics),
-                seen=seen_metrics(statistics),
-            )
-        ),
-        *(
-            ()
-            if spec.events is None
-            else _check_names(
-                "event",
-                expected=set(spec.events),
-                seen=seen_events(statistics),
-            )
-        ),
-        *_check_violations(spec, report),
-    ]
+    return Findings(
+        failures=[
+            *(() if spec.spans is None else _check_spans(spec, spans)),
+            *(
+                ()
+                if spec.metrics is None
+                else _check_names(
+                    "metric",
+                    expected=set(spec.metrics),
+                    seen=seen_metrics(statistics),
+                )
+            ),
+            *(
+                ()
+                if spec.events is None
+                else _check_names(
+                    "event",
+                    expected=set(spec.events),
+                    seen=seen_events(statistics),
+                )
+            ),
+        ],
+        violations=_check_violations(spec, report),
+    )
 
 
 def selects(expectation: SpanExpectation, span: ObservedSpan) -> bool:
@@ -220,21 +238,28 @@ def _check_violations(
     expected = spec.expected_violations
     accepted = expected + spec.inherited_violations
 
-    failures = [
-        "undeclared semconv violation — declare it under expected_violations "
-        f"with a reason, or fix it: id={violation.get('id')!r} "
-        f"context={violation.get('context')!r} "
-        f"message={violation.get('message')!r}"
+    # Sorted, so the same run reads the same way twice: the line starts with
+    # the id, so this is by id and then message.
+    failures = sorted(
+        _describe(violation)
         for violation in violations
         if not any(_matches(violation, e) for e in accepted)
-    ]
+    )
     # Only this scenario's own are required to still be reported: one declared
     # for the whole package is about a gap in general, not about every
     # scenario reaching it.
-    failures += [
-        f"declared violation is no longer reported — remove it: "
-        f"{e.describe()} ({e.reason})"
+    failures += sorted(
+        f"{e.describe()} is no longer reported, remove it ({e.reason})"
         for e in expected
         if not any(_matches(violation, e) for violation in violations)
-    ]
+    )
     return failures
+
+
+def _describe(violation: Mapping[str, object]) -> str:
+    """One line: the advice id, and what weaver said about it.
+
+    Not the context — weaver's message already spells out what is in it.
+    """
+    message = str(violation.get("message") or "").strip().rstrip(".")
+    return f"[{violation.get('id')}] {message}".rstrip()
