@@ -13,11 +13,8 @@ templates:
   - template: "coverage-model.json.j2"
     application_mode: single
     filter: |
-      def level:
-        if type == "string" then .
-        elif type == "object" then (keys[0])
-        # Weaver omits the level for attributes that take the default.
-        else "recommended" end;
+      # A conditional level is written {conditionally_required: "when ..."}.
+      def level: if type == "object" then keys[0] else . end;
 
       def attributes:
         [.attributes[]? | {key: .key, value: (.requirement_level | level)}]
