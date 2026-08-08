@@ -43,13 +43,17 @@ jobs:
           python -m pip install --no-deps \
             -e tools/runner \
             -e tools/gen-ai/mock-server \
-            -e tools/gen-ai/runner
+            -e tools/gen-ai/runner \
+            -e tools/http/runner \
+            -e tools/http/mock-server \
+            -e tools/http/test-client/python
 
       - name: Test
         run: |
           python -m pytest \
             tools/runner/tests \
-            tools/gen-ai/mock-server/tests
+            tools/gen-ai/mock-server/tests \
+            tools/http/runner/tests
 
   lint:
     name: Lint
@@ -97,7 +101,10 @@ jobs:
           python -m pip install --no-deps \
             -e tools/runner \
             -e tools/gen-ai/mock-server \
-            -e tools/gen-ai/runner
+            -e tools/gen-ai/runner \
+            -e tools/http/runner \
+            -e tools/http/mock-server \
+            -e tools/http/test-client/python
 
       - name: Run pyright
         run: python -m pyright
