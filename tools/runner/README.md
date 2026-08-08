@@ -314,8 +314,8 @@ the run carried.
 
 That view is `weaver registry generate --v2` over the
 [coverage-model template](src/opentelemetry/conformance/weaver-templates/coverage-model),
-resolved once into a `coverage-model.json` next to the fetched registry.
-Starting a session resolves it if the pin hasn't got one, so the weaver run
+resolved once into the cache, under the pin it came from and the template that
+produced it. Starting a session resolves it if the pin hasn't got one, so the weaver run
 happens up front rather than after the scenarios have. To see what it
 resolved:
 
@@ -324,10 +324,11 @@ tools/runner/src/opentelemetry/conformance/collect-coverage-model.sh \
     ~/.cache/otel-conformance/semconv/<pin>/model /tmp/model.json
 ```
 
-Requirement levels are read the way they are written: a `required` attribute
-counts only when *every* sample of that signal carried it, the rest when any
-did. So a data file says "this implementation always sets the required ones",
-not "it set them once".
+An attribute counts as covered when any sample of that signal carried it,
+whatever its requirement level. A required attribute the implementation
+sometimes omits is a semconv violation, which weaver reports and the run fails
+on — the data file is about what an implementation emits, not about whether it
+is conformant.
 
 ## Wrapping it for your repo
 
