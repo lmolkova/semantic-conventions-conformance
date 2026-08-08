@@ -22,6 +22,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Callable
 
+from ._model import fingerprint as model_fingerprint
 from ._model import load as load_coverage_model
 from ._model import resolve as resolve_coverage_model
 from ._registry import cache_dir, check_weaver, provision
@@ -81,10 +82,24 @@ class Domain:
 
     @cached_property
     def coverage_model(self) -> CoverageModel:
-        """What the pinned registry declares. Resolved once, next to it."""
-        model = self.checkout / "coverage-model.json"
+        """What the pinned registry declares. Resolved once per pin.
+
+        Cached under its pin rather than inside the checkout, so it survives a
+        re-fetch and doesn't depend on the registry being a local directory.
+        """
+        model = (
+            cache_dir()
+            / "coverage-models"
+            / f"{self._pin}-{model_fingerprint()}.json"
+        )
         resolve_coverage_model(self.registry, model)
         return load_coverage_model(model)
+
+    @property
+    def _pin(self) -> str:
+        """Everything that decides what a resolved model holds, as a name."""
+        label = self.repo.rpartition("/")[2]
+        return f"{label}-{self.ref}-{self.registry_dir.replace('/', '-')}"
 
     @cached_property
     def advice_policies(self) -> Path:
@@ -163,7 +178,7 @@ class Domain:
     ) -> BuildData:
         """Reduce a run against whichever registry it is checked against.
 
-        The pinned one is resolved beside its checkout and reused. An
+        The pinned one is resolved into the cache and reused. An
         overriding one is somebody's working tree, so its model is resolved
         fresh for the session and thrown away with it.
         """
