@@ -87,7 +87,7 @@ def _read_sample(
 
     span = _mapping(entry.get("span"))
     if span:
-        attributes = _attributes(span)
+        attributes = carried_attributes(span)
         names = set(attributes)
         for span_type in classify(
             str(span.get("name", "")), str(span.get("kind", "")), attributes
@@ -103,7 +103,7 @@ def _read_sample(
     log = _mapping(entry.get("log"))
     if log.get("event_name"):
         observed.events.setdefault(str(log["event_name"]), set()).update(
-            _attributes(log)
+            carried_attributes(log)
         )
 
 
@@ -116,11 +116,11 @@ def _data_point_attributes(metric: _Json) -> set[str]:
     return {
         name
         for point in _list(metric.get("data_points"))
-        for name in _attributes(_mapping(point))
+        for name in carried_attributes(_mapping(point))
     }
 
 
-def _attributes(owner: _Json) -> dict[str, object]:
+def carried_attributes(owner: _Json) -> dict[str, object]:
     """The owner's attributes by name, dropping any weaver rejected."""
     attributes: dict[str, object] = {}
     for record in _list(owner.get("attributes")):
