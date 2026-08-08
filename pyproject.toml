@@ -1,0 +1,46 @@
+# Tooling config for the repo. Each component under tools/ is its own
+# distribution with its own pyproject.toml; this file only carries the
+# settings ruff and pyright apply repo-wide.
+
+[tool.ruff]
+target-version = "py310"
+line-length = 79
+output-format = "concise"
+
+[tool.ruff.lint]
+select = [
+  "I",   # isort
+  "F",   # pyflakes
+  "E",   # pycodestyle errors
+  "W",   # pycodestyle warnings
+  "PLC", # pylint convention
+  "PLE", # pylint error
+  "Q",   # flake8-quotes
+  "A",   # flake8-builtins
+  "TID", # flake8-tidy-imports
+]
+ignore = [
+  "E501", # line-too-long
+]
+
+[tool.ruff.lint.isort]
+detect-same-package = false
+known-first-party = [
+  "opentelemetry",
+  "genai_conformance",
+  "genai_mock_server",
+]
+known-third-party = ["pytest"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+reportUnnecessaryTypeIgnoreComment = true
+reportMissingTypeStubs = false
+pythonVersion = "3.10"
+# tools/gen-ai/mock-server is deliberately out: its Flask handlers are plain
+# untyped dicts shaped like provider payloads, and annotating them would say
+# nothing the JSON literals next to them don't.
+include = [
+  "tools/runner/src",
+  "tools/gen-ai/runner/src",
+]

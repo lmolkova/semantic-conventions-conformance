@@ -1,0 +1,16 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "opentelemetry-genai-mock-server"
+version = "0.1.0.dev0"
+description = "Deterministic mock LLM server that GenAI conformance scenarios run against."
+requires-python = ">=3.10"
+dependencies = ["flask >= 3.0, < 4"]
+
+[project.scripts]
+genai-mock-server = "genai_mock_server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/genai_mock_server"]

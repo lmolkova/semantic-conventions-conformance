@@ -1,5 +1,28 @@
 # OpenTelemetry Semantic Conventions Conformance
 
+Does an instrumentation actually emit what the semantic conventions say it
+should? This repo answers that the same way for every library, every
+implementation and every language: run a small program that exercises the
+library, collect what it emits through
+[Weaver live-check](https://github.com/open-telemetry/weaver), and check it
+against expectations declared in YAML.
+
+| | |
+| --- | --- |
+| [`tools/runner/`](tools/runner) | the runner. Generic — it carries no semantic conventions of its own |
+| [`tools/gen-ai/`](tools/gen-ai) | what makes a run a *GenAI* run: the registry pin, the advice policies, and a mock LLM server so scenarios are deterministic without cassettes |
+
+A conformance directory names the wrapper it wants under `runner:`, so one
+command runs any of them:
+
+```sh
+pip install -e tools/runner -e tools/gen-ai/mock-server -e tools/gen-ai/runner
+otel-conformance path/to/directory --report-only
+```
+
+See the [runner's README](tools/runner/README.md) for what a scenario and its
+`conformance.yaml` look like.
+
 ## Maintainers
 
 - [Christophe Kamphaus](https://github.com/kamphaus), Independent

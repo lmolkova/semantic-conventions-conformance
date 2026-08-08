@@ -1,0 +1,18 @@
+# Copyright The OpenTelemetry Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+# Findings filtered out for every domain. Used unless a domain or a caller
+# declares a weaver config of its own, which replaces this file.
+
+# Resource attributes the OTel SDK sets, which belong to no domain registry —
+# see https://github.com/open-telemetry/weaver/issues/1456.
+[[live-check.finding_filters]]
+signal_type = "resource"
+exclude_samples = [
+  "service.name",
+  "service.instance.id",
+  "telemetry.sdk.language",
+  "telemetry.sdk.name",
+  "telemetry.sdk.version",
+  "telemetry.auto.version",
+]
