@@ -182,6 +182,26 @@ def test_present_false_passes_when_attribute_is_absent() -> None:
     assert check(scenario(spans=(expectation,)), report) == []
 
 
+def test_a_rejected_value_does_not_satisfy_an_expectation() -> None:
+    """Weaver rejected the value, so the attribute did not really arrive."""
+    expectation = SpanExpectation(
+        match=SpanMatch(attributes={"gen_ai.operation.name": "chat"}),
+        count=1,
+        attributes={"server.port": AttributeMatcher(present=True)},
+    )
+    sample = span_sample(**{"gen_ai.operation.name": "chat"})
+    sample["span"]["attributes"].append(
+        {
+            "name": "server.port",
+            "value": "8080",
+            "live_check_result": {"all_advice": [{"id": "type_mismatch"}]},
+        }
+    )
+
+    (failure,) = check(scenario(spans=(expectation,)), Report([sample]))
+    assert "server.port" in failure
+
+
 def test_list_valued_attributes_are_comparable() -> None:
     """Weaver reports list values; they must not blow up the distinct count."""
     expectation = SpanExpectation(
