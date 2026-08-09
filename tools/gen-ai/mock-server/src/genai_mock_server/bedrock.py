@@ -2,7 +2,7 @@
 
 import json
 
-from flask import Blueprint, Response, make_response
+from flask import Blueprint, Response, jsonify, make_response
 
 from ._common import encode_aws_event_stream_message
 
@@ -50,7 +50,7 @@ def _stream_converse():
 
 @bp.route("/model/<path:model_id>/converse", methods=["POST"])
 def bedrock_converse(model_id):
-    resp = make_response(CONVERSE_RESPONSE)
+    resp = jsonify(CONVERSE_RESPONSE)
     resp.headers["x-amzn-requestid"] = "converse-mock-001"
     return resp
 
