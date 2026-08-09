@@ -2,7 +2,7 @@
 
 import json
 
-from flask import Blueprint, Response
+from flask import Blueprint, Response, make_response
 
 from ._common import encode_aws_event_stream_message
 
@@ -50,19 +50,25 @@ def _stream_converse():
 
 @bp.route("/model/<path:model_id>/converse", methods=["POST"])
 def bedrock_converse(model_id):
-    return CONVERSE_RESPONSE
+    resp = make_response(CONVERSE_RESPONSE)
+    resp.headers["x-amzn-requestid"] = "converse-mock-001"
+    return resp
 
 
 @bp.route("/model/<path:model_id>/converse-stream", methods=["POST"])
 def bedrock_converse_stream(model_id):
-    return Response(_stream_converse(), mimetype="application/vnd.amazon.eventstream")
+    resp = make_response(Response(_stream_converse(), mimetype="application/vnd.amazon.eventstream"))
+    resp.headers["x-amzn-requestid"] = "converse-stream-mock-001"
+    return resp
 
 
 @bp.route("/model/<path:model_id>/invoke", methods=["POST"])
 def bedrock_invoke(model_id):
     """Handle Bedrock InvokeModel — used for Titan Embeddings."""
-    resp = {
+    result = {
         "embedding": [0.001] * 256,
         "inputTextTokenCount": 8,
     }
-    return Response(json.dumps(resp), mimetype="application/json")
+    resp = make_response(Response(json.dumps(result), mimetype="application/json"))
+    resp.headers["x-amzn-requestid"] = "invoke-mock-001"
+    return resp

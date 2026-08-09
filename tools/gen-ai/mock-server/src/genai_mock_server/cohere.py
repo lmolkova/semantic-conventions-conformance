@@ -7,6 +7,7 @@ bp = Blueprint("cohere", __name__)
 
 @bp.route("/v2/chat", methods=["POST"])
 def cohere_chat():
+    body = request.get_json(silent=True) or {}
     return {
         "id": "cohere-mock-001",
         "finish_reason": "COMPLETE",
@@ -18,6 +19,7 @@ def cohere_chat():
             "billed_units": {"input_tokens": 25, "output_tokens": 12},
             "tokens": {"input_tokens": 25, "output_tokens": 12},
         },
+        "model": body.get("model", "command-r-plus"),
     }
 
 
@@ -47,6 +49,7 @@ def cohere_embed():
             "api_version": {"version": "2"},
             "billed_units": {"input_tokens": 8},
         },
+        "model": body.get("model", "embed-v4.0"),
     }
 
 

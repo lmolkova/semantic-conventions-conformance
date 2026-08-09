@@ -137,6 +137,8 @@ def _stream_chunks():
                 "candidatesTokenCount": 6,
                 "totalTokenCount": 31,
             },
+            "modelVersion": "gemini-2.0-flash",
+            "responseId": "resp-mock-stream-001",
         }
     )
     return chunks

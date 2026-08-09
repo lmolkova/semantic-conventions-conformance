@@ -336,6 +336,18 @@ def _stream_chat(body):
             "created": 1700000000,
             "model": model,
             "choices": [{"index": 0, "delta": {"content": ""}, "finish_reason": "stop"}],
+        }
+    )
+
+    # Send usage in a separate final chunk (matching OpenAI API behaviour for
+    # stream_options.include_usage; always emitted so callers can read it).
+    yield sse(
+        {
+            "id": chunk_id,
+            "object": "chat.completion.chunk",
+            "created": 1700000000,
+            "model": model,
+            "choices": [],
             "usage": {
                 "prompt_tokens": 25,
                 "completion_tokens": 6,
