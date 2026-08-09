@@ -130,6 +130,20 @@ _expected_for_op("retrieval", _) := _retrieval_expected
 
 _expected_for_op("invoke_workflow", _) := _invoke_workflow_expected
 
+_expected_for_op("search_memory", _) := _search_memory_expected
+
+_expected_for_op("create_memory", _) := _memory_operation_expected
+
+_expected_for_op("update_memory", _) := _memory_operation_expected
+
+_expected_for_op("upsert_memory", _) := _memory_operation_expected
+
+_expected_for_op("delete_memory", _) := _memory_operation_expected
+
+_expected_for_op("create_memory_store", _) := _memory_store_operation_expected
+
+_expected_for_op("delete_memory_store", _) := _memory_store_operation_expected
+
 # Inference (chat / generate_content / text_completion).
 # Required: gen_ai.operation.name, gen_ai.provider.name.
 # Always-emit Recommended: response model/id, finish reasons, token usage,
@@ -208,6 +222,28 @@ _invoke_workflow_expected := {
 	"gen_ai.workflow.name",
 }
 
+# Memory search operation.
+# Required: gen_ai.operation.name, gen_ai.memory.store.id.
+# Recommended: gen_ai.memory.query.text, gen_ai.memory.record.count.
+_search_memory_expected := {
+	"gen_ai.operation.name",
+	"gen_ai.memory.store.id",
+}
+
+# Memory create/update/upsert/delete operations.
+# Required: gen_ai.operation.name, gen_ai.memory.store.id.
+# Recommended: gen_ai.memory.record.count.
+_memory_operation_expected := {
+	"gen_ai.operation.name",
+	"gen_ai.memory.store.id",
+}
+
+# Memory store lifecycle operations (create_memory_store, delete_memory_store).
+# Required: gen_ai.operation.name.
+_memory_store_operation_expected := {
+	"gen_ai.operation.name",
+}
+
 # Per expected attribute, one violation if missing.
 deny contains _span_finding(
 	"genai_expected_attribute_missing",
@@ -246,6 +282,13 @@ _expected_kinds_for_op["invoke_workflow"]  := {"internal"}
 _expected_kinds_for_op["retrieval"]        := {"client"}
 _expected_kinds_for_op["invoke_agent"]     := {"internal", "client"}
 _expected_kinds_for_op["create_agent"]     := {"internal", "client"}
+_expected_kinds_for_op["search_memory"]    := {"internal", "client"}
+_expected_kinds_for_op["create_memory"]    := {"internal", "client"}
+_expected_kinds_for_op["update_memory"]    := {"internal", "client"}
+_expected_kinds_for_op["upsert_memory"]    := {"internal", "client"}
+_expected_kinds_for_op["delete_memory"]    := {"internal", "client"}
+_expected_kinds_for_op["create_memory_store"] := {"internal", "client"}
+_expected_kinds_for_op["delete_memory_store"] := {"internal", "client"}
 
 deny contains _span_finding(
 	"genai_span_kind_unexpected",
@@ -290,6 +333,13 @@ _known_operation_names := {
 	"execute_tool",
 	"invoke_workflow",
 	"plan",
+	"search_memory",
+	"create_memory",
+	"update_memory",
+	"upsert_memory",
+	"delete_memory",
+	"create_memory_store",
+	"delete_memory_store",
 }
 
 deny contains _span_finding(
