@@ -12,6 +12,7 @@ and any advice policies of its own.
 
 from __future__ import annotations
 
+import inspect
 import shutil
 import sys
 from collections.abc import Generator, Mapping
@@ -135,8 +136,6 @@ class Domain:
         registry = registry if registry is not None else self.registry
         advice_data = None
         if self.advice_data:
-            import inspect
-
             params = list(inspect.signature(self.advice_data).parameters.values())
             if len(params) >= 2 or any(
                 p.kind == inspect.Parameter.VAR_POSITIONAL for p in params
