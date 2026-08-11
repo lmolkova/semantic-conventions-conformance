@@ -15,7 +15,12 @@ to under ``server:``.
 import shutil
 from pathlib import Path
 
-from opentelemetry.conformance import Domain, cache_dir, require_pin
+from opentelemetry.conformance import (
+    Domain,
+    cache_dir,
+    require_pin,
+    resolve_coverage_model,
+)
 
 from ._coverage import classifier
 
@@ -41,7 +46,6 @@ def _advice_data(registry: Path) -> str:
         shutil.rmtree(staged)
     staged.mkdir(parents=True)
 
-    from opentelemetry.conformance import resolve_coverage_model
     resolve_coverage_model(registry, staged / "coverage-model.json")
 
     for schema in sorted(source.glob("*.json")):

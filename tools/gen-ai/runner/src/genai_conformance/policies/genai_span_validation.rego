@@ -108,11 +108,11 @@ deny contains _span_finding(
 # ─── Per-operation expected attributes (violation) ──────────────────────────
 
 _matching_span_type(op, _, "gen_ai.inference.client") if {
-	op in {"chat", "generate_content", "text_completion", "embeddings"}
+	op in {"chat", "generate_content", "text_completion"}
 }
 
 _matching_span_type(op, kind, span_type) if {
-	not op in {"chat", "generate_content", "text_completion", "embeddings"}
+	not op in {"chat", "generate_content", "text_completion"}
 	data["coverage-model"].spans[span_type]
 	startswith(span_type, sprintf("gen_ai.%v", [op]))
 	endswith(span_type, sprintf(".%v", [kind]))

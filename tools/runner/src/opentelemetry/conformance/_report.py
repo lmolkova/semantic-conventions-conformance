@@ -100,7 +100,7 @@ def _read_sample(
     if span:
         attributes = carried_attributes(span)
         names = set(attributes)
-        
+
         span_types = None
         if scenario_spec and scenario_spec.spans:
             kind = str(span.get("kind", ""))
@@ -115,7 +115,7 @@ def _read_sample(
                     if all(attributes.get(attr) == val for attr, val in match.attributes.items()):
                         span_types = {match.type}
                         break
-                        
+
         if span_types is None:
             span_types = classify(
                 str(span.get("name", "")), str(span.get("kind", "")), attributes

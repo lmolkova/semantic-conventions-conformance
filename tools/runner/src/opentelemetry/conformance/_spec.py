@@ -102,7 +102,7 @@ class SpanExpectation:
 
     match: SpanMatch
     count: int | None = None
-    attributes: Mapping[str, AttributeMatcher] = field(default_factory=dict)
+    attributes: Mapping[str, AttributeMatcher] = field(default_factory=dict[str, AttributeMatcher])
 
     def describe(self) -> str:
         return self.match.describe()
