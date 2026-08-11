@@ -229,8 +229,7 @@ deny contains _span_finding(
 # ─── Unknown gen_ai.operation.name (violation) ──────────────────────────────
 #
 # Weaver's built-in `undefined_enum_variant` advice is `information`-level;
-# we raise unknown values on `gen_ai.operation.name` to a violation. Keep
-# `_known_operation_names` in sync with model/gen-ai/registry.yaml.
+# we raise unknown values on `gen_ai.operation.name` to a violation.
 
 _known_operation_names[op] if {
 	some op in data["coverage-model"].enums["gen_ai.operation.name"]

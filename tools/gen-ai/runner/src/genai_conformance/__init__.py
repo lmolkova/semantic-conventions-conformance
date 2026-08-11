@@ -29,7 +29,7 @@ _HERE = Path(__file__).parent
 _UNFETCHABLE_REF = '"$ref": "http://json-schema.org/draft-07/schema#"'
 
 
-def _advice_data(registry: Path) -> str:
+def _advice_data(registry: Path, model_path: Path | None = None) -> str:
     """A ``--advice-data`` glob of the GenAI content JSON schemas.
 
     The schemas are copied out of the registry before being handed to weaver,
@@ -46,7 +46,10 @@ def _advice_data(registry: Path) -> str:
         shutil.rmtree(staged)
     staged.mkdir(parents=True)
 
-    resolve_coverage_model(registry, staged / "coverage-model.json")
+    if model_path is not None:
+        shutil.copy(model_path, staged / "coverage-model.json")
+    else:
+        resolve_coverage_model(registry, staged / "coverage-model.json")
 
     for schema in sorted(source.glob("*.json")):
         text = schema.read_text(encoding="utf-8")

@@ -64,7 +64,7 @@ class Domain:
     # A callable because some registries need patching on the way — see the
     # GenAI domain. It must not write into the registry it is given: that is
     # somebody's working tree whenever the pin has been overridden.
-    advice_data: Callable[[Path], str] | None = None
+    advice_data: Callable[..., str] | None = None
 
     @cached_property
     def checkout(self) -> Path:
@@ -120,7 +120,11 @@ class Domain:
                 shutil.copy(policy, assembled / policy.name)
         return assembled
 
-    def weaver_defaults(self, registry: Path | None = None) -> WeaverSpec:
+    def weaver_defaults(
+        self,
+        registry: Path | None = None,
+        model_path: Path | None = None,
+    ) -> WeaverSpec:
         """This domain's registry and advice, as defaults for a package.
 
         ``registry`` is the one the run is checked against when the caller
@@ -129,12 +133,22 @@ class Domain:
         against its own schemas rather than the pinned ones.
         """
         registry = registry if registry is not None else self.registry
+        advice_data = None
+        if self.advice_data:
+            import inspect
+
+            params = list(inspect.signature(self.advice_data).parameters.values())
+            if len(params) >= 2 or any(
+                p.kind == inspect.Parameter.VAR_POSITIONAL for p in params
+            ):
+                advice_data = self.advice_data(registry, model_path)
+            else:
+                advice_data = self.advice_data(registry)
+
         return WeaverSpec(
             registry=str(registry),
             policies=str(self.advice_policies),
-            advice_data=self.advice_data(registry)
-            if self.advice_data
-            else None,
+            advice_data=advice_data,
         )
 
     @property
@@ -172,15 +186,16 @@ class Domain:
             Path(weaver.registry) if weaver and weaver.registry else None
         )
         with ExitStack() as stack:
+            resolved_build_data, model_path = self._coverage(stack, override)
             if build_data is None:
-                build_data = self._coverage(stack, override)
+                build_data = resolved_build_data
             with conformance_session(
                 directory,
                 report_dir=report_dir,
                 data_file=data_file,
                 variables=variables,
                 weaver=(weaver or WeaverSpec()).over(
-                    self.weaver_defaults(override)
+                    self.weaver_defaults(override, model_path)
                 ),
                 server=server,
                 env=env,
@@ -188,7 +203,9 @@ class Domain:
             ) as session:
                 yield session
 
-    def _coverage(self, stack: ExitStack, override: Path | None) -> BuildData:
+    def _coverage(
+        self, stack: ExitStack, override: Path | None
+    ) -> tuple[BuildData, Path]:
         """Reduce a run against whichever registry it is checked against.
 
         The pinned one is resolved into the cache and reused. An
@@ -196,13 +213,20 @@ class Domain:
         fresh for the session and thrown away with it.
         """
         if override is None:
-            model = self.coverage_model
+            model_path = (
+                cache_dir()
+                / "coverage-models"
+                / f"{self._pin}-{model_fingerprint()}.json"
+            )
+            resolve_coverage_model(self.registry, model_path)
         else:
             scratch = Path(stack.enter_context(TemporaryDirectory()))
-            resolved = scratch / "coverage-model.json"
-            resolve_coverage_model(override, resolved)
-            model = load_coverage_model(resolved)
-        return semconv_coverage(self.classifier(model), lambda: model)
+            model_path = scratch / "coverage-model.json"
+            resolve_coverage_model(override, model_path)
+
+        model = load_coverage_model(model_path)
+        build_data = semconv_coverage(self.classifier(model), lambda: model)
+        return build_data, model_path
 
     def main(self, argv: list[str] | None = None) -> int:
         """This domain's CLI: ``otel-conformance`` with the domain pinned."""

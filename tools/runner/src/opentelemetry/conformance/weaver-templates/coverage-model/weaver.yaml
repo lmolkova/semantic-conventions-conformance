@@ -24,7 +24,7 @@ templates:
         [
           .registry.attributes[]? | select(.type | type == "object" and .members) | {
              key: .key,
-             value: [.type.members[]?.id]
+             value: [.type.members[]?.value]
           }
         ] | from_entries;
 
