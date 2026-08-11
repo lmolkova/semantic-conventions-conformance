@@ -40,6 +40,10 @@ def _advice_data(registry: Path) -> str:
     if staged.exists():
         shutil.rmtree(staged)
     staged.mkdir(parents=True)
+
+    from opentelemetry.conformance import resolve_coverage_model
+    resolve_coverage_model(registry, staged / "coverage-model.json")
+
     for schema in sorted(source.glob("*.json")):
         text = schema.read_text(encoding="utf-8")
         (staged / schema.name).write_text(

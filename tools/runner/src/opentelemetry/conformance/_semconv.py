@@ -36,13 +36,12 @@ def semconv_coverage(
     """
 
     def build(report_dir: Path, spec: PackageSpec) -> object:
-        del spec  # what ran is in the reports; the reduction is over those
         if not report_dir.is_dir():
             raise RuntimeError(
                 f"no weaver reports to reduce under {report_dir} — the run "
                 "produced nothing to record"
             )
-        return _reduce(read(report_dir, classify), coverage_model())
+        return _reduce(read(report_dir, classify, spec), coverage_model())
 
     return build
 

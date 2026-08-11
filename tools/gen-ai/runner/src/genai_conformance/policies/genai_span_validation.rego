@@ -107,105 +107,49 @@ deny contains _span_finding(
 
 # ─── Per-operation expected attributes (violation) ──────────────────────────
 
-# `_expected_for_op(op, kind)` returns the expected-attribute manifest for a
-# span given its `gen_ai.operation.name` and span kind. Most operations ignore
-# kind (second arg is a wildcard); invoke_agent dispatches on it because
-# semconv splits it into separate internal and client spans. Undefined (→ no
-# violations) for an unmapped op or an unexpected agent span kind.
-_expected_for_op("chat", _) := _inference_expected
-
-_expected_for_op("generate_content", _) := _inference_expected
-
-_expected_for_op("text_completion", _) := _inference_expected
-
-_expected_for_op("embeddings", _) := _embeddings_expected
-
-_expected_for_op("execute_tool", _) := _execute_tool_expected
-
-_expected_for_op("invoke_agent", kind) := _invoke_agent_expected[kind]
-
-_expected_for_op("create_agent", _) := _create_agent_expected
-
-_expected_for_op("retrieval", _) := _retrieval_expected
-
-_expected_for_op("invoke_workflow", _) := _invoke_workflow_expected
-
-# Inference (chat / generate_content / text_completion).
-# Required: gen_ai.operation.name, gen_ai.provider.name.
-# Always-emit Recommended: response model/id, finish reasons, token usage,
-# server.address. Sampling parameters (frequency_penalty, max_tokens, …),
-# cache counters, and `gen_ai.response.time_to_first_chunk` (streaming-only)
-# are conditional and not flagged here.
-_inference_expected := {
-	"gen_ai.operation.name",
-	"gen_ai.provider.name",
-	"gen_ai.response.model",
-	"gen_ai.response.id",
-	"gen_ai.response.finish_reasons",
-	"gen_ai.usage.input_tokens",
-	"gen_ai.usage.output_tokens",
-	"server.address"
+_matching_span_type(op, _, "gen_ai.inference.client") if {
+	op in {"chat", "generate_content", "text_completion", "embeddings"}
 }
 
-# Embeddings.
-# Required: gen_ai.operation.name, gen_ai.provider.name.
-# Always-emit Recommended: dimension.count, response.model, input tokens,
-# server.address. (`gen_ai.request.encoding_formats` is conditional.)
-_embeddings_expected := {
-	"gen_ai.operation.name",
-	"gen_ai.provider.name",
-	"gen_ai.embeddings.dimension.count",
-	"gen_ai.response.model",
-	"gen_ai.usage.input_tokens",
-	"server.address"
+_matching_span_type(op, kind, span_type) if {
+	not op in {"chat", "generate_content", "text_completion", "embeddings"}
+	data["coverage-model"].spans[span_type]
+	startswith(span_type, sprintf("gen_ai.%v", [op]))
+	endswith(span_type, sprintf(".%v", [kind]))
 }
 
-# Tool execution.
-# Required: gen_ai.operation.name, gen_ai.tool.name.
-# Recommended-when-available: gen_ai.tool.call.id, gen_ai.tool.type. (Tool
-# description is genuinely optional per provider — not flagged.)
-_execute_tool_expected := {
-	"gen_ai.operation.name",
-	"gen_ai.tool.name",
-	"gen_ai.tool.call.id",
-	"gen_ai.tool.type",
+# attributes marked as recommended without a note,
+# but they are not always available.
+_excluded_recommended := {
+	"gen_ai.request.temperature",
+	"gen_ai.request.max_tokens",
+	"gen_ai.request.top_p",
+	"gen_ai.request.stop_sequences",
+	"gen_ai.request.presence_penalty",
+	"gen_ai.request.frequency_penalty",
+	"gen_ai.usage.cache_creation.input_tokens",
+	"gen_ai.usage.cache_read.input_tokens",
+	"gen_ai.tool.description",
 }
 
-# Invoke agent (internal)
-# Required: gen_ai.operation.name
-_invoke_agent_expected["internal"] := {
-	"gen_ai.operation.name",
+_level_expected(level, _) if {
+	level == "required"
 }
 
-# Invoke agent (client)
-# Required: gen_ai.operation.name, gen_ai.provider.name.
-# Always-emit Recommended: server.address.
-_invoke_agent_expected["client"] := {
-	"gen_ai.operation.name",
-	"gen_ai.provider.name",
-	"server.address",
+_level_expected(level, attr) if {
+	level == "recommended"
+	not _excluded_recommended[attr]
 }
 
-# Create agent. After creation completes the provider returns an agent.id;
-# flag it as always-emit on create_agent.
-_create_agent_expected := {
-	"gen_ai.operation.name",
-	"gen_ai.provider.name",
-	"gen_ai.agent.id",
-}
-
-# Retrieval. Only gen_ai.operation.name is unconditionally required.
-_retrieval_expected := {
-	"gen_ai.operation.name",
-	"server.address",
-}
-
-# Invoke workflow. Only gen_ai.operation.name is unconditionally required;
-# gen_ai.workflow.name is conditionally required "when available" but is
-# effectively always known where a workflow is instrumented, so flag it.
-_invoke_workflow_expected := {
-	"gen_ai.operation.name",
-	"gen_ai.workflow.name",
+_expected_for_op(op, kind) := expected if {
+	data["coverage-model"].spans
+	some span_type
+	_matching_span_type(op, kind, span_type)
+	attrs := data["coverage-model"].spans[span_type].attributes
+	expected := { attr |
+		some attr, level in attrs
+		_level_expected(level, attr)
+	}
 }
 
 # Per expected attribute, one violation if missing.
@@ -237,15 +181,25 @@ deny contains _span_finding(
 # embeddings are remote calls → CLIENT; tool execution runs in-process →
 # INTERNAL). `invoke_agent` / `create_agent` may be same-process or remote, so
 # both kinds are allowed. Undefined (→ no violation) for unmapped ops.
-_expected_kinds_for_op["chat"]             := {"client"}
-_expected_kinds_for_op["generate_content"] := {"client"}
-_expected_kinds_for_op["text_completion"]  := {"client"}
-_expected_kinds_for_op["embeddings"]       := {"client"}
-_expected_kinds_for_op["execute_tool"]     := {"internal"}
-_expected_kinds_for_op["invoke_workflow"]  := {"internal"}
-_expected_kinds_for_op["retrieval"]        := {"client"}
-_expected_kinds_for_op["invoke_agent"]     := {"internal", "client"}
-_expected_kinds_for_op["create_agent"]     := {"internal", "client"}
+_op_allowed_kind(op, span_type, span_def) := kind if {
+	startswith(span_type, sprintf("gen_ai.%v", [op]))
+	kind := span_def.kind
+}
+
+_op_allowed_kind(op, span_type, span_def) := kind if {
+	op in {"chat", "generate_content", "text_completion", "embeddings"}
+	span_type == "gen_ai.inference.client"
+	kind := span_def.kind
+}
+
+_expected_kinds_for_op[op] := kinds if {
+	some op in _known_operation_names
+	kinds := { kind |
+		some span_type, span_def in data["coverage-model"].spans
+		kind := _op_allowed_kind(op, span_type, span_def)
+	}
+	count(kinds) > 0
+}
 
 deny contains _span_finding(
 	"genai_span_kind_unexpected",
@@ -278,18 +232,8 @@ deny contains _span_finding(
 # we raise unknown values on `gen_ai.operation.name` to a violation. Keep
 # `_known_operation_names` in sync with model/gen-ai/registry.yaml.
 
-_known_operation_names := {
-	"chat",
-	"generate_content",
-	"text_completion",
-	"embeddings",
-	"retrieval",
-	"fetch_response",
-	"create_agent",
-	"invoke_agent",
-	"execute_tool",
-	"invoke_workflow",
-	"plan",
+_known_operation_names[op] if {
+	some op in data["coverage-model"].enums["gen_ai.operation.name"]
 }
 
 deny contains _span_finding(

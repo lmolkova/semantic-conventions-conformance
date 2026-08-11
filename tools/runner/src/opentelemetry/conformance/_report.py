@@ -18,7 +18,10 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Mapping, cast
+from typing import TYPE_CHECKING, Callable, Mapping, cast
+
+if TYPE_CHECKING:
+    from ._spec import PackageSpec, ScenarioSpec
 
 # A span's name, kind and attributes → the registry span types it belongs to.
 ClassifySpan = Callable[[str, str, Mapping[str, object]], "set[str]"]
@@ -36,7 +39,11 @@ class Observed:
     events: Carried = field(default_factory=dict[str, "set[str]"])
 
 
-def read(report_dir: Path, classify: ClassifySpan) -> Observed:
+def read(
+    report_dir: Path,
+    classify: ClassifySpan,
+    spec: PackageSpec | None = None,
+) -> Observed:
     """Read every weaver report under ``report_dir`` into one :class:`Observed`."""
     observed = Observed()
     counted: dict[str, set[str]] = {}
@@ -47,8 +54,9 @@ def read(report_dir: Path, classify: ClassifySpan) -> Observed:
             continue
         document = cast(_Json, report)
         _merge_counted(counted, _mapping(document.get("statistics")))
+        scenario_spec = spec.scenarios.get(path.stem) if spec else None
         for sample in _list(document.get("samples")):
-            _read_sample(observed, sample, classify)
+            _read_sample(observed, sample, classify, scenario_spec)
 
     # Weaver counts signals it kept no sample of. Record those too, carrying
     # nothing — there is nothing to read attributes off.
@@ -79,7 +87,10 @@ def _merge_counted(into: dict[str, set[str]], statistics: _Json) -> None:
 
 
 def _read_sample(
-    observed: Observed, sample: object, classify: ClassifySpan
+    observed: Observed,
+    sample: object,
+    classify: ClassifySpan,
+    scenario_spec: ScenarioSpec | None = None,
 ) -> None:
     if not isinstance(sample, dict):
         return
@@ -89,9 +100,28 @@ def _read_sample(
     if span:
         attributes = carried_attributes(span)
         names = set(attributes)
-        for span_type in classify(
-            str(span.get("name", "")), str(span.get("kind", "")), attributes
-        ):
+        
+        span_types = None
+        if scenario_spec and scenario_spec.spans:
+            kind = str(span.get("kind", ""))
+            for expectation in scenario_spec.spans:
+                match = expectation.match
+                if match.type is not None:
+                    if match.kind is not None:
+                        m_kind = match.kind.upper().removeprefix("SPAN_KIND_")
+                        s_kind = kind.upper().removeprefix("SPAN_KIND_")
+                        if m_kind != s_kind:
+                            continue
+                    if all(attributes.get(attr) == val for attr, val in match.attributes.items()):
+                        span_types = {match.type}
+                        break
+                        
+        if span_types is None:
+            span_types = classify(
+                str(span.get("name", "")), str(span.get("kind", "")), attributes
+            )
+
+        for span_type in span_types:
             observed.spans.setdefault(span_type, set()).update(names)
 
     metric = _mapping(entry.get("metric"))

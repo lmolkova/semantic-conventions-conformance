@@ -142,8 +142,16 @@ def _check_spans(
     # Spans some expectation selected, so undeclared ones can be reported
     # without a second pass. Indices because a span isn't hashable.
     selected: set[int] = set()
+    has_assertions = False
 
     for expectation in expectations:
+        if expectation.count is None:
+            for index, span in enumerate(spans):
+                if selects(expectation, span):
+                    selected.add(index)
+            continue
+
+        has_assertions = True
         matched: list[ObservedSpan] = []
         for index, span in enumerate(spans):
             if selects(expectation, span):
@@ -161,14 +169,15 @@ def _check_spans(
                     f"{spec.name}: {expectation.describe()}: {failure}"
                 )
 
-    undeclared = [
-        span for index, span in enumerate(spans) if index not in selected
-    ]
-    if undeclared:
-        failures.append(
-            f"{spec.name}: {len(undeclared)} undeclared span(s): "
-            f"{sorted({span.name for span in undeclared})}"
-        )
+    if has_assertions:
+        undeclared = [
+            span for index, span in enumerate(spans) if index not in selected
+        ]
+        if undeclared:
+            failures.append(
+                f"{spec.name}: {len(undeclared)} undeclared span(s): "
+                f"{sorted({span.name for span in undeclared})}"
+            )
     return failures
 
 

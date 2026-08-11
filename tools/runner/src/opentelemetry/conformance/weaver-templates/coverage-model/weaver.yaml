@@ -14,11 +14,19 @@ templates:
     application_mode: single
     filter: |
       # A conditional level is written {conditionally_required: "when ..."}.
-      def level: if type == "object" then keys[0] else . end;
+      def level: if type == "object" then (keys[0] + "_conditional") else . end;
 
       def attributes:
         [.attributes[]? | {key: .key, value: (.requirement_level | level)}]
         | from_entries;
+
+      def enums:
+        [
+          .registry.attributes[]? | select(.type | type == "object" and .members) | {
+             key: .key,
+             value: [.type.members[]?.id]
+          }
+        ] | from_entries;
 
       # A signal's own definition has id == the name it declares; anything
       # else under the same name is a refinement, and is dropped.
@@ -35,4 +43,5 @@ templates:
           key: .name,
           value: {attributes: attributes},
         }) | from_entries),
+        enums: enums,
       }

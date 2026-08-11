@@ -43,8 +43,6 @@ def fingerprint() -> str:
         if path.is_file():
             digest.update(path.read_bytes())
     return digest.hexdigest()[:12]
-
-
 def resolve(registry: Path, output: Path) -> Path:
     """Resolve ``registry`` into a coverage model at ``output``, once.
 

@@ -552,3 +552,26 @@ def test_coverage_keeps_undeclared_spans_apart_from_declared_ones(
         },
         {"match": {"kind": "internal"}, "attributes": ["custom.attribute"]},
     ]
+
+
+def test_mapping_only_expectation_does_not_enforce_exact_validation() -> None:
+    # A mapping-only expectation (count is None)
+    mapping = SpanExpectation(
+        match=SpanMatch(
+            attributes={"gen_ai.operation.name": "chat"},
+            type="gen_ai.inference.client",
+        ),
+        count=None,
+    )
+    # The scenario has ONLY mapping-only expectations
+    spec = scenario(spans=(mapping,))
+
+    report = Report(
+        samples=[
+            span_sample(**{"gen_ai.operation.name": "chat"}),
+            span_sample(name="other_span", **{"custom.attr": "value"}),  # undeclared span
+        ]
+    )
+
+    # It should pass without raising undeclared span error
+    assert check(spec, report) == []

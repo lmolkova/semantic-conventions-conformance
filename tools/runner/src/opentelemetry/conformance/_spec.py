@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import shlex
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Mapping, Sequence, cast
 
@@ -51,6 +51,7 @@ class SpanMatch:
 
     attributes: Mapping[str, object]
     kind: str | None = None
+    type: str | None = None
 
     def key(self) -> str:
         """A stable identifier for what this selects.
@@ -73,6 +74,8 @@ class SpanMatch:
             selection["attributes"] = dict(sorted(self.attributes.items()))
         if self.kind is not None:
             selection["kind"] = self.kind
+        if self.type is not None:
+            selection["type"] = self.type
         return selection
 
     def describe(self) -> str:
@@ -82,6 +85,8 @@ class SpanMatch:
         facets: list[tuple[str, object]] = list(self.attributes.items())
         if self.kind is not None:
             facets.append(("kind", self.kind))
+        if self.type is not None:
+            facets.append(("type", self.type))
         return facets
 
 
@@ -96,8 +101,8 @@ class SpanExpectation:
     """
 
     match: SpanMatch
-    count: int
-    attributes: Mapping[str, AttributeMatcher]
+    count: int | None = None
+    attributes: Mapping[str, AttributeMatcher] = field(default_factory=dict)
 
     def describe(self) -> str:
         return self.match.describe()
@@ -312,7 +317,7 @@ def _parse_matcher(value: object, where: str) -> AttributeMatcher:
 
 def _parse_match(value: object, where: str) -> SpanMatch:
     match = _require_mapping(value or {}, where)
-    _check_keys(match, ("attributes", "kind"), where)
+    _check_keys(match, ("attributes", "kind", "type"), where)
     attributes = _require_mapping(
         match.get("attributes") or {}, f"{where}.attributes"
     )
@@ -321,15 +326,19 @@ def _parse_match(value: object, where: str) -> SpanMatch:
     return SpanMatch(
         attributes=dict(attributes),
         kind=_optional_string(match, "kind", where),
+        type=_optional_string(match, "type", where),
     )
 
 
 def _parse_span(value: object, where: str) -> SpanExpectation:
     span = _require_mapping(value, where)
     _check_keys(span, ("match", "expect"), where)
-    for key in ("match", "expect"):
-        if key not in span:
-            raise SpecError(f"{where}: {key} is required")
+    if "match" not in span:
+        raise SpecError(f"{where}: match is required")
+
+    match = _parse_match(span["match"], f"{where}.match")
+    if "expect" not in span:
+        return SpanExpectation(match=match)
 
     expect = _require_mapping(span["expect"], f"{where}.expect")
     _check_keys(expect, ("count", "attributes"), f"{where}.expect")
@@ -342,7 +351,7 @@ def _parse_span(value: object, where: str) -> SpanExpectation:
         expect.get("attributes") or {}, f"{where}.expect.attributes"
     )
     return SpanExpectation(
-        match=_parse_match(span["match"], f"{where}.match"),
+        match=match,
         count=count,
         attributes={
             name: _parse_matcher(matcher, f"{where}.expect.attributes.{name}")

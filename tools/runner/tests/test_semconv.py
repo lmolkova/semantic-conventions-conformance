@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -221,3 +222,37 @@ def test_a_run_that_produced_no_reports_is_an_error(tmp_path) -> None:
 
     with pytest.raises(RuntimeError, match="produced nothing to record"):
         build(tmp_path / "missing", None)  # pyright: ignore[reportArgumentType]
+
+
+def test_read_uses_declared_match_type(tmp_path) -> None:
+    # Set up scenario_spec with a match that declares a type
+    match = SimpleNamespace(
+        attributes={"gen_ai.operation.name": "run_step"},
+        kind="internal",
+        type="gen_ai.run_step.internal",
+    )
+    expectation = SimpleNamespace(match=match)
+    scenario_spec = SimpleNamespace(spans=[expectation])
+    spec = SimpleNamespace(scenarios={"one": scenario_spec})
+
+    write_report(
+        tmp_path,
+        "one",
+        samples=[
+            span_sample(
+                "internal",
+                attribute("gen_ai.operation.name", "run_step"),
+                attribute("gen_ai.step.name", "step1"),
+            )
+        ],
+    )
+
+    # by_kind classifies internal spans as http.internal
+    # but the matcher type overrides it.
+    observed = read(tmp_path, by_kind, spec)  # pyright: ignore[reportArgumentType]
+
+    assert set(observed.spans) == {"gen_ai.run_step.internal"}
+    assert observed.spans["gen_ai.run_step.internal"] == {
+        "gen_ai.operation.name",
+        "gen_ai.step.name",
+    }
