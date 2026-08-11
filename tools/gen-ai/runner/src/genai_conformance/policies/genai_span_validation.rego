@@ -187,7 +187,7 @@ _op_allowed_kind(op, span_type, span_def) := kind if {
 }
 
 _op_allowed_kind(op, span_type, span_def) := kind if {
-	op in {"chat", "generate_content", "text_completion", "embeddings"}
+	op in {"chat", "generate_content", "text_completion"}
 	span_type == "gen_ai.inference.client"
 	kind := span_def.kind
 }

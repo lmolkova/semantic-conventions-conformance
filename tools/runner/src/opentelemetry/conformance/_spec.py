@@ -97,7 +97,7 @@ class SpanExpectation:
     The two halves are declared separately — ``match`` selects, ``expect``
     asserts — so an attribute used to find a span reads differently from one
     being checked on it. Every span in the report must be selected by some
-    expectation, which is what keeps the check exact.
+    expectation, keeping the check exact when assertions are present.
     """
 
     match: SpanMatch
