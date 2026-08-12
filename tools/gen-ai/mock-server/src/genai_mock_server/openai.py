@@ -99,6 +99,31 @@ CHAT_TOOL_CALL_RESPONSE = {
     },
 }
 
+CHAT_AUDIO_RESPONSE = {
+    "id": "chatcmpl-mock-audio-001",
+    "object": "chat.completion",
+    "created": 1700000000,
+    "model": "gpt-4o-audio-preview",
+    "choices": [
+        {
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": "This is a response from the mock server.",
+            },
+            "finish_reason": "stop",
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 40,
+        # OpenAI breaks out audio (and cached) tokens within the prompt total.
+        "prompt_tokens_details": {"audio_tokens": 10, "cached_tokens": 0},
+        "completion_tokens": 20,
+        "completion_tokens_details": {"audio_tokens": 15, "reasoning_tokens": 0},
+        "total_tokens": 60,
+    },
+}
+
 EMBEDDING_RESPONSE = {
     "id": "embd-mock-001",
     "object": "list",
@@ -141,6 +166,7 @@ RESPONSES_RESPONSE = {
         "input_tokens": 25,
         "input_tokens_details": {
             "cached_tokens": 5,
+            "cache_write_tokens": 8,
         },
         "output_tokens": 12,
         "output_tokens_details": {
@@ -149,6 +175,19 @@ RESPONSES_RESPONSE = {
         "total_tokens": 37,
     },
 }
+
+
+def _has_audio(body):
+    """True if the request uses audio input or requests audio output."""
+    if "audio" in (body.get("modalities") or []):
+        return True
+    for message in body.get("messages") or []:
+        content = message.get("content")
+        if isinstance(content, list):
+            for part in content:
+                if isinstance(part, dict) and part.get("type") == "input_audio":
+                    return True
+    return False
 
 
 def _responses_tool_call_response(body):
@@ -404,6 +443,12 @@ def chat_completions(deployment=None):
         resp = copy.deepcopy(CHAT_RESPONSE)
         resp["model"] = body.get("model", resp["model"])
         resp["choices"][0]["message"]["content"] = "I drafted this plan but it is not in the requested schema."
+        return resp
+
+    # Audio input/output: OpenAI reports per-modality (audio) token counts in usage.
+    if _has_audio(body):
+        resp = copy.deepcopy(CHAT_AUDIO_RESPONSE)
+        resp["model"] = body.get("model", resp["model"])
         return resp
 
     resp = copy.deepcopy(CHAT_RESPONSE)
