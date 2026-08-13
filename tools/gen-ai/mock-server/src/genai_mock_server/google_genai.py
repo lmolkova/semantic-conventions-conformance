@@ -129,30 +129,30 @@ _OUTPUT_MODALITY = {
 
 
 def _request_media_modalities(body):
-    """Modalities of non-text media parts in the request, as (modality, token_count)."""
-    result = []
+    """Token count per media modality in the request, summed over all parts of that modality."""
+    totals = {}
     for content in body.get("contents") or []:
         for part in content.get("parts") or []:
             blob = (
                 part.get("inlineData") or part.get("inline_data") or part.get("fileData") or part.get("file_data") or {}
             )
             mime = blob.get("mimeType") or blob.get("mime_type") or ""
-            for prefix, entry in _MIME_MODALITY:
+            for prefix, (modality, count) in _MIME_MODALITY:
                 if mime.startswith(prefix):
-                    result.append(entry)
+                    totals[modality] = totals.get(modality, 0) + count
                     break
-    return result
+    return totals
 
 
 def _response_modalities(body):
-    """Requested output modalities (defaults to TEXT)."""
+    """Requested output modalities, de-duplicated in request order (defaults to TEXT)."""
     cfg = body.get("generationConfig") or body.get("generation_config") or {}
     mods = cfg.get("responseModalities") or cfg.get("response_modalities") or []
-    return [str(m).upper() for m in mods] or ["TEXT"]
+    return list(dict.fromkeys(str(m).upper() for m in mods)) or ["TEXT"]
 
 
 def _has_inline_media(body):
-    """True if the request includes non-text media (image/audio/video/document) input."""
+    """True if the request includes non-text media (image or audio) input."""
     for content in body.get("contents") or []:
         for part in content.get("parts") or []:
             if any(key in part for key in ("inlineData", "inline_data", "fileData", "file_data")):
@@ -163,7 +163,7 @@ def _has_inline_media(body):
 def _multimodal_response(body):
     """Build a response whose usage metadata reflects the request's input/output modalities."""
     prompt_details = [{"modality": "TEXT", "tokenCount": 25}]
-    prompt_details += [{"modality": m, "tokenCount": c} for m, c in _request_media_modalities(body)]
+    prompt_details += [{"modality": m, "tokenCount": c} for m, c in _request_media_modalities(body).items()]
     prompt_total = sum(d["tokenCount"] for d in prompt_details)
 
     # A portion of each input modality is served from the context cache, so the

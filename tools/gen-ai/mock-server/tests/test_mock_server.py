@@ -229,3 +229,121 @@ def test_text_protocol_does_not_loop_once_the_tool_has_answered(client):
 
     content = response.json["choices"][0]["message"]["content"]
     assert "<tool_call>" not in content
+
+
+def test_chat_reports_audio_tokens_when_audio_is_requested(client):
+    response = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "gpt-4o-audio-preview",
+            "modalities": ["text", "audio"],
+            "messages": [{"role": "user", "content": "hi"}],
+        },
+    )
+
+    usage = response.json["usage"]
+    assert usage["prompt_tokens_details"]["audio_tokens"] > 0
+    assert usage["completion_tokens_details"]["audio_tokens"] > 0
+
+
+def test_chat_reports_audio_tokens_for_audio_input(client):
+    response = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "gpt-4o-audio-preview",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [{"type": "input_audio", "input_audio": {"data": "bW9jaw==", "format": "wav"}}],
+                }
+            ],
+        },
+    )
+
+    assert response.json["usage"]["prompt_tokens_details"]["audio_tokens"] > 0
+
+
+def test_responses_reports_cache_write_tokens(client):
+    response = client.post("/v1/responses", json={"model": "gpt-4o-mini", "input": "hi"})
+
+    details = response.json["usage"]["input_tokens_details"]
+    assert details["cache_write_tokens"] > 0
+    assert details["cached_tokens"] > 0
+
+
+def test_google_reports_a_cached_and_per_modality_breakdown(client):
+    response = client.post(
+        "/v1beta/models/gemini-2.0-flash:generateContent",
+        json={"contents": [{"role": "user", "parts": [{"text": "hi"}]}]},
+    )
+
+    usage = response.json["usageMetadata"]
+    assert usage["cachedContentTokenCount"] > 0
+    assert [d["modality"] for d in usage["promptTokensDetails"]] == ["TEXT"]
+    assert [d["modality"] for d in usage["cacheTokensDetails"]] == ["TEXT"]
+    assert [d["modality"] for d in usage["candidatesTokensDetails"]] == ["TEXT"]
+
+
+def test_google_bills_tool_use_tokens_separately_from_the_prompt(client):
+    tools = [{"functionDeclarations": [{"name": "get_weather"}]}]
+    request = {"contents": [{"role": "user", "parts": [{"text": "weather?"}]}], "tools": tools}
+
+    call = client.post("/v1beta/models/gemini-2.0-flash:generateContent", json=request).json
+    usage = call["usageMetadata"]
+    assert usage["toolUsePromptTokenCount"] > 0
+    # Tool-use tokens are their own component of the total, not part of the prompt.
+    expected = (
+        usage["promptTokenCount"]
+        + usage["candidatesTokenCount"]
+        + usage["toolUsePromptTokenCount"]
+        + usage["thoughtsTokenCount"]
+    )
+    assert usage["totalTokenCount"] == expected
+
+
+def test_google_answers_in_text_once_the_tool_has_answered(client):
+    answered = {
+        "contents": [
+            {"role": "user", "parts": [{"text": "weather?"}]},
+            {"role": "user", "parts": [{"functionResponse": {"name": "get_weather", "response": {"temp": 70}}}]},
+        ],
+        "tools": [{"functionDeclarations": [{"name": "get_weather"}]}],
+    }
+
+    body = client.post("/v1beta/models/gemini-2.0-flash:generateContent", json=answered).json
+
+    parts = body["candidates"][0]["content"]["parts"]
+    assert all("functionCall" not in part for part in parts)
+    assert body["usageMetadata"]["toolUsePromptTokenCount"] > 0
+
+
+def test_google_breaks_usage_down_by_input_and_output_modality(client):
+    blob = {"mimeType": "image/png", "data": "bW9jaw=="}
+    response = client.post(
+        "/v1beta/models/gemini-2.0-flash:generateContent",
+        json={
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {"text": "describe"},
+                        {"inlineData": blob},
+                        {"inlineData": blob},
+                        {"inlineData": {"mimeType": "audio/wav", "data": "bW9jaw=="}},
+                    ],
+                }
+            ],
+            "generationConfig": {"responseModalities": ["TEXT", "IMAGE"]},
+        },
+    )
+
+    usage = response.json["usageMetadata"]
+    # One entry per modality, not per part: the two images are summed.
+    prompt = {d["modality"]: d["tokenCount"] for d in usage["promptTokensDetails"]}
+    assert set(prompt) == {"TEXT", "IMAGE", "AUDIO"}
+    assert prompt["IMAGE"] == 2 * 258
+    assert sum(prompt.values()) == usage["promptTokenCount"]
+
+    assert [d["modality"] for d in usage["candidatesTokensDetails"]] == ["TEXT", "IMAGE"]
+    assert sum(d["tokenCount"] for d in usage["candidatesTokensDetails"]) == usage["candidatesTokenCount"]
+    assert usage["cachedContentTokenCount"] < usage["promptTokenCount"]
