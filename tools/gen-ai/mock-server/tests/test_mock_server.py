@@ -242,8 +242,12 @@ def test_chat_reports_audio_tokens_when_audio_is_requested(client):
     )
 
     usage = response.json["usage"]
-    assert usage["prompt_tokens_details"]["audio_tokens"] > 0
     assert usage["completion_tokens_details"]["audio_tokens"] > 0
+    assert usage["prompt_tokens_details"]["audio_tokens"] == 0
+
+    message = response.json["choices"][0]["message"]
+    assert message["audio"]["transcript"]
+    assert message["content"] is None
 
 
 def test_chat_reports_audio_tokens_for_audio_input(client):
@@ -260,7 +264,11 @@ def test_chat_reports_audio_tokens_for_audio_input(client):
         },
     )
 
-    assert response.json["usage"]["prompt_tokens_details"]["audio_tokens"] > 0
+    usage = response.json["usage"]
+    assert usage["prompt_tokens_details"]["audio_tokens"] > 0
+    # Text-only output was requested, so no audio is generated.
+    assert usage["completion_tokens_details"]["audio_tokens"] == 0
+    assert "audio" not in response.json["choices"][0]["message"]
 
 
 def test_responses_reports_cache_write_tokens(client):
