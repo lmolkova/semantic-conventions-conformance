@@ -167,9 +167,6 @@ jobs:
             tools/gen-ai/runner/tests \
             tools/http/runner/tests
 
-  # The heavy gate: installs every scenario's dependencies, runs the programs,
-  # and checks the committed data.json files still match what they emit.
-
   scenarios:
     name: Scenarios
     runs-on: ubuntu-latest
