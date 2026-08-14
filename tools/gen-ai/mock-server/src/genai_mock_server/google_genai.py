@@ -5,7 +5,7 @@ import json
 
 from flask import Blueprint, Response, request
 
-from ._common import mock_tool_arguments
+from ._common import mock_json_schema_value, mock_tool_arguments
 
 bp = Blueprint("google_genai", __name__)
 
@@ -206,6 +206,52 @@ def _multimodal_response(body):
     }
 
 
+def _structured_response(body):
+    """Answer a responseSchema request with a value that schema accepts."""
+    config = body.get("generationConfig") or body.get("generation_config") or {}
+    schema = config.get("responseSchema") or config.get("response_schema")
+    response = copy.deepcopy(RESPONSE)
+    answer = mock_json_schema_value(_json_schema(schema)) if schema else {}
+    response["candidates"][0]["content"]["parts"] = [
+        {"text": json.dumps(answer)}
+    ]
+    return response
+
+
+# Gemini spells its schema in the protobuf enum names, upper case, so a
+# generator written against JSON Schema needs them lowered first.
+def _json_schema(schema):
+    if isinstance(schema, list):
+        return [_json_schema(entry) for entry in schema]
+    if not isinstance(schema, dict):
+        return schema
+    lowered = {}
+    for key, value in schema.items():
+        if key in ("type", "type_") and isinstance(value, str):
+            lowered["type"] = value.lower()
+        else:
+            lowered[key] = _json_schema(value)
+    return lowered
+
+
+def _wants_json(body):
+    config = body.get("generationConfig") or body.get("generation_config") or {}
+    mime = config.get("responseMimeType") or config.get("response_mime_type")
+    return mime == "application/json"
+
+
+def _batch_embedding_response(body):
+    """One embedding per request entry: a client indexes them positionally."""
+    requests = body.get("requests") or []
+    response = copy.deepcopy(BATCH_EMBEDDING_RESPONSE)
+    count = max(1, len(requests))
+    response["embeddings"] = [
+        {"values": [0.001] * 256} for _ in range(count)
+    ]
+    response["usageMetadata"] = {"promptTokenCount": 8 * count}
+    return response
+
+
 def _has_function_response(body):
     contents = body.get("contents") or []
     for content in contents:
@@ -311,7 +357,7 @@ def google_genai(model_action):
     if ":streamGenerateContent" in model_action:
         return Response(_stream_ndjson(), mimetype="application/x-ndjson")
     if ":batchEmbedContents" in model_action:
-        return BATCH_EMBEDDING_RESPONSE
+        return _batch_embedding_response(body)
     if ":embedContent" in model_action:
         return EMBEDDING_RESPONSE
     # :generateContent or any other action
@@ -321,6 +367,8 @@ def google_genai(model_action):
         return _tool_response(body)
     if _has_inline_media(body) or set(_response_modalities(body)) != {"TEXT"}:
         return _multimodal_response(body)
+    if _wants_json(body):
+        return _structured_response(body)
     return RESPONSE
 
 
@@ -391,4 +439,6 @@ def vertex_ai(rest):
         return _tool_response(body)
     if _has_inline_media(body) or set(_response_modalities(body)) != {"TEXT"}:
         return _multimodal_response(body)
+    if _wants_json(body):
+        return _structured_response(body)
     return RESPONSE

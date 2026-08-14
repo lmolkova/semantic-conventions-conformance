@@ -417,6 +417,42 @@ def test_json_schema_cuts_off_a_self_referencing_model(client):
     json.loads(response.json["choices"][0]["message"]["content"])
 
 
+def test_google_answers_a_response_schema_with_matching_json(client):
+    response = client.post(
+        "/v1beta/models/gemini-2.0-flash:generateContent",
+        json={
+            "contents": [{"role": "user", "parts": [{"text": "weather?"}]}],
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                # Gemini spells its schema in upper-case enum names.
+                "responseSchema": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "location": {"type": "STRING"},
+                        "temperature": {"type": "INTEGER"},
+                    },
+                },
+            },
+        },
+    )
+    text = response.json["candidates"][0]["content"]["parts"][0]["text"]
+    assert json.loads(text) == {"location": "Seattle", "temperature": 1}
+
+
+def test_google_batch_embeddings_answer_one_vector_per_request(client):
+    response = client.post(
+        "/v1beta/models/text-embedding-004:batchEmbedContents",
+        json={
+            "requests": [
+                {"content": {"parts": [{"text": "one"}]}},
+                {"content": {"parts": [{"text": "two"}]}},
+            ]
+        },
+    )
+    assert len(response.json["embeddings"]) == 2
+    assert response.json["usageMetadata"]["promptTokenCount"] == 16
+
+
 def test_embeddings_answer_one_vector_per_input(client):
     response = client.post(
         "/v1/embeddings",
