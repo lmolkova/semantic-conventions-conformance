@@ -12,6 +12,7 @@ against expectations declared in YAML.
 | [`tools/runner/`](tools/runner) | the runner. Generic — it carries no semantic conventions of its own |
 | [`tools/gen-ai/`](tools/gen-ai) | what makes a run a *GenAI* run: the registry pin, the advice policies, and a mock LLM server so scenarios are deterministic without cassettes |
 | [`tools/http/`](tools/http) | the same for HTTP: the upstream registry pin, and the test client that drives both sides of the domain |
+| [`scenarios/gen-ai/`](scenarios/gen-ai) | the GenAI scenarios and the coverage they produce |
 
 A conformance directory names the wrapper it wants under `runner:`, so one
 command runs any of them:

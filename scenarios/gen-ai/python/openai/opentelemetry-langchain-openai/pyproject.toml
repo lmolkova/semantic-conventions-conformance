@@ -1,0 +1,19 @@
+[project]
+name = "openai-langchain-conformance"
+version = "0.0.0"
+requires-python = ">=3.12"
+dependencies = [
+    # The instrumentation declares `langchain` under `instruments`, so
+    # zero-code skips it when only langchain-openai is installed.
+    "langchain==1.3.15",
+    "langchain-openai==1.5.0",
+    "opentelemetry-api==1.44.0",
+    "opentelemetry-sdk==1.44.0",
+    "opentelemetry-exporter-otlp-proto-grpc==1.44.0",
+    "opentelemetry-distro==0.65b0",
+    "opentelemetry-util-genai==1.0b0",
+    "opentelemetry-instrumentation-genai-langchain==1.0b0",
+]
+
+[tool.uv]
+package = false

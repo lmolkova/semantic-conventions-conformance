@@ -6,7 +6,7 @@ import re
 
 from flask import Blueprint, Response, request
 
-from ._common import mock_tool_arguments, sse
+from ._common import mock_json_schema_value, mock_tool_arguments, sse
 
 bp = Blueprint("openai", __name__)
 
@@ -48,6 +48,7 @@ CHAT_REFUSAL_RESPONSE = {
 CHAT_RESPONSE = {
     "id": "chatcmpl-mock-001",
     "object": "chat.completion",
+    "service_tier": "default",
     "created": 1700000000,
     "model": "gpt-4o-mini",
     "choices": [
@@ -70,6 +71,7 @@ CHAT_RESPONSE = {
 CHAT_TOOL_CALL_RESPONSE = {
     "id": "chatcmpl-mock-002",
     "object": "chat.completion",
+    "service_tier": "default",
     "created": 1700000000,
     "model": "gpt-4o-mini",
     "choices": [
@@ -102,6 +104,7 @@ CHAT_TOOL_CALL_RESPONSE = {
 CHAT_AUDIO_RESPONSE = {
     "id": "chatcmpl-mock-audio-001",
     "object": "chat.completion",
+    "service_tier": "default",
     "created": 1700000000,
     "model": "gpt-4o-audio-preview",
     "choices": [
@@ -283,6 +286,9 @@ def _mock_chat_content(body, message_text):
         )
 
     response_format = body.get("response_format") or {}
+    if response_format.get("type") == "json_schema":
+        json_schema = response_format.get("json_schema") or {}
+        return json.dumps(mock_json_schema_value(json_schema.get("schema")))
     if response_format.get("type") != "json_object":
         return "This is a response from the mock server."
 
@@ -364,6 +370,7 @@ def _stream_chat(body):
             "object": "chat.completion.chunk",
             "created": 1700000000,
             "model": model,
+            "service_tier": "default",
             "choices": [{"index": 0, "delta": {"role": "assistant", "content": ""}, "finish_reason": None}],
         }
     )
@@ -489,6 +496,16 @@ def embeddings(deployment=None):
     body = request.get_json(silent=True) or {}
     resp = copy.deepcopy(EMBEDDING_RESPONSE)
     resp["model"] = body.get("model", resp["model"])
+    # One embedding per input, at the requested width: clients batch a list in
+    # one request and index the answers back onto it positionally.
+    raw_input = body.get("input")
+    count = len(raw_input) if isinstance(raw_input, list) else 1
+    vector = [0.001] * int(body.get("dimensions") or len(resp["data"][0]["embedding"]))
+    resp["data"] = [
+        {"object": "embedding", "index": index, "embedding": list(vector)}
+        for index in range(count)
+    ]
+    resp["usage"] = {"prompt_tokens": 8 * count, "total_tokens": 8 * count}
     return resp
 
 

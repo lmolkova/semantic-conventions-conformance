@@ -120,6 +120,9 @@ def test_chat_echoes_the_requested_model(client):
     assert body["model"] == "gpt-5"
     assert body["choices"][0]["message"]["role"] == "assistant"
     assert body["usage"]["total_tokens"] > 0
+    # OpenAI reports which service tier actually served the request, and the
+    # conventions have an attribute for it.
+    assert body["service_tier"] == "default"
 
 
 def test_chat_returns_a_tool_call_when_tools_are_offered(client):
@@ -145,6 +148,107 @@ def test_chat_returns_a_tool_call_when_tools_are_offered(client):
     tool_calls = response.json["choices"][0]["message"]["tool_calls"]
     assert [call["function"]["name"] for call in tool_calls] == ["get_weather"]
     assert "location" in json.loads(tool_calls[0]["function"]["arguments"])
+
+
+def test_bedrock_converse_returns_a_tool_use_when_tools_are_offered(client):
+    body = {
+        "messages": [
+            {"role": "user", "content": [{"text": "weather in Seattle?"}]}
+        ],
+        "toolConfig": {
+            "tools": [
+                {
+                    "toolSpec": {
+                        "name": "get_current_weather",
+                        "inputSchema": {
+                            "json": {
+                                "type": "object",
+                                "properties": {"location": {"type": "string"}},
+                                "required": ["location"],
+                            }
+                        },
+                    }
+                }
+            ]
+        },
+    }
+    response = client.post("/model/anthropic.claude-v2/converse", json=body)
+    assert response.json["stopReason"] == "tool_use"
+    tool_use = response.json["output"]["message"]["content"][0]["toolUse"]
+    assert tool_use["name"] == "get_current_weather"
+    assert tool_use["input"] == {"location": "Seattle"}
+
+    # Once the result comes back the model answers instead of calling again.
+    body["messages"].append(
+        {
+            "role": "user",
+            "content": [
+                {
+                    "toolResult": {
+                        "toolUseId": tool_use["toolUseId"],
+                        "content": [{"text": "70 degrees and sunny"}],
+                    }
+                }
+            ],
+        }
+    )
+    answer = client.post("/model/anthropic.claude-v2/converse", json=body)
+    assert answer.json["stopReason"] == "end_turn"
+
+
+def test_embeddings_answer_one_vector_per_input(client):
+    response = client.post(
+        "/v1/embeddings",
+        json={
+            "model": "text-embedding-3-small",
+            "input": ["one", "two", "three"],
+            "dimensions": 8,
+        },
+    )
+    data = response.json["data"]
+    assert [entry["index"] for entry in data] == [0, 1, 2]
+    assert all(len(entry["embedding"]) == 8 for entry in data)
+    assert response.json["usage"]["prompt_tokens"] == 24
+
+
+def test_chat_answers_a_json_schema_with_a_matching_object(client):
+    response = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "how is the weather?"}],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "forecast",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "location": {"type": "string"},
+                            "temperature": {"type": "integer"},
+                            "conditions": {"enum": ["sunny", "rainy"]},
+                            "days": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {"summary": {"type": "string"}},
+                                },
+                            },
+                        },
+                        "required": ["location", "temperature", "conditions", "days"],
+                    },
+                },
+            },
+        },
+    )
+    answer = json.loads(response.json["choices"][0]["message"]["content"])
+    assert answer == {
+        "location": "Seattle",
+        "temperature": 1,
+        "conditions": "sunny",
+        "days": [{"summary": "mock-summary"}],
+    }
 
 
 def test_chat_streams_when_asked(client):

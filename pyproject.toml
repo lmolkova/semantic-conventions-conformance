@@ -6,6 +6,7 @@
 target-version = "py310"
 line-length = 79
 output-format = "concise"
+extend-exclude = ["scenarios/**/uv.lock"]
 
 [tool.ruff.lint]
 select = [

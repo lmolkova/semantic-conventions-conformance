@@ -1,0 +1,25 @@
+{
+  "spans": {
+    "gen_ai.execute_tool.internal": [
+      "gen_ai.operation.name",
+      "gen_ai.tool.call.result",
+      "gen_ai.tool.name",
+      "gen_ai.tool.type"
+    ],
+    "gen_ai.invoke_agent.internal": [
+      "gen_ai.agent.name",
+      "gen_ai.operation.name"
+    ],
+    "gen_ai.invoke_workflow.internal": [
+      "gen_ai.operation.name",
+      "gen_ai.workflow.name"
+    ]
+  },
+  "events": {},
+  "metrics": {
+    "gen_ai.client.operation.duration": [
+      "gen_ai.operation.name",
+      "gen_ai.provider.name"
+    ]
+  }
+}

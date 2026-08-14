@@ -29,6 +29,44 @@ def mock_tool_argument_value(name, schema):
     return f"mock-{name}"
 
 
+def mock_json_schema_value(schema, name="value"):
+    """Build a deterministic value satisfying a JSON Schema fragment.
+
+    Structured-output requests carry the schema the answer has to match, so the
+    answer is generated from it rather than from a fixed payload: any scenario's
+    schema is served without adding a branch here.
+    """
+    schema = schema or {}
+    for keyword in ("anyOf", "oneOf", "allOf"):
+        alternatives = schema.get(keyword)
+        if alternatives:
+            return mock_json_schema_value(alternatives[0], name)
+    if "const" in schema:
+        return schema["const"]
+    if schema.get("enum"):
+        return schema["enum"][0]
+
+    schema_type = schema.get("type")
+    if isinstance(schema_type, list):
+        # A nullable field is described as ["string", "null"]; answer with the
+        # value rather than the null so the field carries something.
+        schema_type = next(
+            (entry for entry in schema_type if entry != "null"), "string"
+        )
+
+    if schema_type == "object":
+        properties = schema.get("properties", {})
+        # Every property, not just the required ones: an optional field left out
+        # would make the answer depend on which fields the caller marked.
+        return {
+            key: mock_json_schema_value(subschema, key)
+            for key, subschema in properties.items()
+        }
+    if schema_type == "array":
+        return [mock_json_schema_value(schema.get("items", {}), name)]
+    return mock_tool_argument_value(name, {"type": schema_type or "string"})
+
+
 def mock_tool_arguments(tool):
     function = (tool or {}).get("function", {})
     parameters = function.get("parameters") or (tool or {}).get("parameters") or (tool or {}).get("input_schema", {})
