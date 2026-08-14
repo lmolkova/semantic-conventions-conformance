@@ -1,7 +1,12 @@
 # Copyright The OpenTelemetry Authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Conformance scenario: an OpenAI JSON schema answer, through langchain."""
+"""Conformance scenario: an OpenAI JSON schema answer, through langchain.
+
+``with_structured_output`` builds a chain, so this run also emits a workflow
+span. That is langchain modelling structured output as a chain, not a scenario
+straying out of the llm client group.
+"""
 
 from langchain_openai import ChatOpenAI
 

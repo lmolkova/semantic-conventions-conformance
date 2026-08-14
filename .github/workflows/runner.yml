@@ -172,6 +172,9 @@ jobs:
   scenarios:
     name: Scenarios
     runs-on: ubuntu-latest
+    # Eight directories, each syncing a full SDK stack and running weaver per
+    # scenario. Long, but nowhere near the 6 hour default a hang would burn.
+    timeout-minutes: 45
     concurrency:
       group: ${{ github.workflow }}-scenarios-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
@@ -190,6 +193,9 @@ jobs:
       # not pip, installs what the programs need.
       - name: Set up uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: "scenarios/**/uv.lock"
 
       - name: Install weaver
         run: |
@@ -229,21 +235,30 @@ jobs:
         env:
           FORCE_COLOR: "1" # the log renders ANSI; the step's stdout is no tty
         run: |
-          set -euo pipefail
+          set -uo pipefail
           mapfile -t directories < <(
-            find scenarios -name conformance.yaml -printf '%h\n' | sort
+            find scenarios -name .venv -prune -o \
+              -name conformance.yaml -exec dirname {} \; | sort
           )
+          # Every directory runs even when one fails: the point of the job is
+          # the measurement across all of them, and the next step can only
+          # check the data.json files a run actually rewrote.
+          status=0
           for directory in "${directories[@]}"; do
             echo "::group::$directory"
-            otel-conformance "$directory" --report-only
+            otel-conformance "$directory" --report-only || status=1
             echo "::endgroup::"
           done
+          exit "$status"
 
       # A run rewrites each directory's data.json. Unchanged means the
       # committed coverage still matches what the implementations emit;
       # changed means either an implementation moved or a registry pin did,
       # and the new file belongs in the PR.
+      # Runs even when a scenario failed: a crash in one directory says nothing
+      # about whether the other seven drifted, and both are worth seeing.
       - name: Check the committed coverage is up to date
+        if: ${{ !cancelled() }}
         run: |
           # --intent-to-add first: a new scenario directory whose data.json
           # was never `git add`ed is untracked, and `git diff` can't see it.

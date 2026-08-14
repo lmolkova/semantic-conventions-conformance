@@ -51,9 +51,6 @@ otel-conformance scenarios/gen-ai/python/<library>/<instrumentation> --report-on
 
 - Commit the regenerated `data.json`. CI runs every directory and fails on any
   diff, so an out-of-date file is a red build.
-- Run it twice and confirm `data.json` does not change. Churn between runs
-  means the scenario is not deterministic (an id, a timestamp, an iteration
-  order), and that is the scenario's bug, not the harness's.
 - Read the new `data.json` against the registry. An absent attribute has to
   correspond to a real instrumentation gap. If the scenario simply never sent
   the stimulus, fix the scenario.

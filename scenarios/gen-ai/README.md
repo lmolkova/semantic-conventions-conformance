@@ -76,21 +76,21 @@ Every inference-shaped request carries:
 
 | Class | Applies to | The exchange | What it is for |
 | --- | --- | --- | --- |
-| `inference` | client | one non-streaming call | request, response and usage attributes, and both metrics |
-| `streaming` | client | the same call, streamed, consumed to the end | what an instrumentation can only report once the last chunk lands |
-| `structured_output` | client | one call naming a JSON schema | `gen_ai.output.type` |
-| `multimodal` | client | one call per non-text content kind the API takes | the *shape* of recorded content, per-modality token counts |
-| `embeddings` | client | one batched call with an explicit encoding format and dimension count | the embeddings span type |
-| `tool_calling` | client | two round trips: tool definitions and the requested call, then the tool result travelling back as input | tool definitions and calls on both sides of the exchange |
-| `automatic_tool_calling` | both | the same exchange, with the SDK or framework running the tool and sending the result back | tool execution as a span, not a message |
+| `inference` | llm client | one non-streaming call | request, response and usage attributes, and both metrics |
+| `streaming` | llm client | the same call, streamed, consumed to the end | what an instrumentation can only report once the last chunk lands |
+| `structured_output` | llm client | one call naming a JSON schema | `gen_ai.output.type` |
+| `multimodal` | llm client | one call per non-text content kind the API takes | the *shape* of recorded content, per-modality token counts |
+| `embeddings` | llm client | one batched call with an explicit encoding format and dimension count | the embeddings span type |
+| `tool_calling` | llm client | two round trips: tool definitions and the requested call, then the tool result travelling back as input | tool definitions and calls on both sides of the exchange |
+| `automatic_tool_calling` | llm client; agentic | the same exchange, with the SDK or framework running the tool and sending the result back | tool execution as a span, not a message |
 | `invoke_agent` | agentic | one agent run, no tools | the agent span on its own |
 | `workflow` | agentic | one chain, no agent | the workflow span on its own |
 
-*client* means an LLM client SDK such as `openai` or `anthropic`. *agentic*
-means a framework that drives a run, such as `langchain` or `openai-agents`.
-Keep the two groups in separate directories: a directory covers one group.
-`automatic_tool_calling` is the one class both groups have, so it is the one
-that compares across them.
+*llm client* means an LLM client SDK such as `openai` or `anthropic`.
+*agentic* means a framework that drives a run, such as `langchain` or
+`openai-agents`. Keep the groups in separate directories: a directory covers
+one group. `automatic_tool_calling` is the one class both groups have, so it
+is the one that compares across them.
 
 A library gets a scenario for every class its API supports. Anthropic has no
 embeddings API, so `anthropic/` has no embeddings scenario. The OpenAI Python
@@ -100,16 +100,16 @@ and the gap lands in `data.json`.
 
 ## What is covered
 
-| Library | Instrumentation | Classes |
+| Directory | Instrumentation | Classes |
 | --- | --- | --- |
-| `openai` | `opentelemetry-instrumentation-genai-openai` | every client class |
-| `openai` | `opentelemetry-instrumentation-genai-langchain` | every client class, through `langchain-openai` |
-| `anthropic` | `opentelemetry-instrumentation-genai-anthropic` | client classes except structured output and embeddings |
-| `anthropic` | `opentelemetry-instrumentation-genai-langchain` | the same, through `langchain-anthropic` |
-| `google-genai` | `opentelemetry-instrumentation-google-genai` | every client class |
-| `botocore` | `opentelemetry-instrumentation-botocore` | Bedrock Converse: inference, streaming, tool calling |
-| `langchain` | `opentelemetry-instrumentation-genai-langchain` | agentic classes |
-| `openai-agents` | `opentelemetry-instrumentation-genai-openai-agents` | agentic classes |
+| `openai/opentelemetry-openai` | `…-genai-openai` | inference, streaming, tool_calling, structured_output, multimodal, embeddings |
+| `openai/opentelemetry-langchain-openai` | `…-genai-langchain` | the same, through `langchain-openai` |
+| `anthropic/opentelemetry-anthropic` | `…-genai-anthropic` | inference, streaming, tool_calling, automatic_tool_calling, multimodal |
+| `anthropic/opentelemetry-langchain-anthropic` | `…-genai-langchain` | the same, through `langchain-anthropic`, minus automatic_tool_calling: langchain binds tools but does not run them outside an agent |
+| `google-genai/opentelemetry-google-genai` | `…-google-genai` | every client class, plus automatic_tool_calling |
+| `botocore/opentelemetry-botocore` | `…-botocore` | Bedrock Converse: inference, streaming, tool_calling |
+| `langchain/opentelemetry-langchain` | `…-genai-langchain` | workflow, invoke_agent, automatic_tool_calling |
+| `openai-agents/opentelemetry-openai-agents` | `…-genai-openai-agents` | invoke_agent, automatic_tool_calling. The Agents SDK wraps every run in a trace, so the workflow span comes with each of those rather than from a scenario of its own |
 
 The conventions also cover retrieval, memory and planning. No instrumentation
 here emits them, so there is no class for them yet.

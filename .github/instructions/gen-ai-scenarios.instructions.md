@@ -1,5 +1,5 @@
 ---
-applyTo: "scenarios/gen-ai/**"
+applyTo: "scenarios/gen-ai/**,tools/gen-ai/mock-server/**"
 ---
 
 # Reviewing GenAI conformance scenarios

@@ -13,6 +13,13 @@ env:
   OPENAI_API_KEY: test_openai_api_key
   OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: SPAN_AND_EVENT
 
+# A run prints `[non-fatal] Tracing client error 401`. The Agents SDK ships its
+# own traces to api.openai.com, and the instrumentation only removes that
+# exporter when constructed with disable_openai_trace_export=True, which
+# zero-code cannot pass. Turning the SDK's tracing off is not an option either:
+# the instrumentation is a processor in that same pipeline. The error is
+# expected and does not affect what is measured.
+
 scenarios:
   invoke_agent:
     run: uv run --frozen --project . opentelemetry-instrument python ../scenarios/invoke_agent.py

@@ -24,6 +24,7 @@ _RESUMABLE_RESPONSES = set()
 CHAT_REFUSAL_RESPONSE = {
     "id": "chatcmpl-mock-refusal-001",
     "object": "chat.completion",
+    "service_tier": "default",
     "created": 1700000000,
     "model": "gpt-4o-mini",
     "choices": [
@@ -185,6 +186,18 @@ RESPONSES_RESPONSE = {
         "total_tokens": 37,
     },
 }
+
+
+def _served_service_tier(body):
+    """The tier the request is answered on.
+
+    The real API reports the tier that actually served the request, so "auto"
+    comes back as the tier it resolved to rather than as "auto".
+    """
+    requested = body.get("service_tier")
+    if not requested or requested == "auto":
+        return "default"
+    return requested
 
 
 def _has_audio_input(body):
@@ -370,7 +383,7 @@ def _stream_chat(body):
             "object": "chat.completion.chunk",
             "created": 1700000000,
             "model": model,
-            "service_tier": "default",
+            "service_tier": _served_service_tier(body),
             "choices": [{"index": 0, "delta": {"role": "assistant", "content": ""}, "finish_reason": None}],
         }
     )
@@ -443,6 +456,7 @@ def chat_completions(deployment=None):
             resp["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"] = json.dumps(
                 mock_tool_arguments(tool)
             )
+            resp["service_tier"] = _served_service_tier(body)
             return resp
 
     # CrewAI planner natural-retry path: a refusal, then a schema-invalid
@@ -478,10 +492,12 @@ def chat_completions(deployment=None):
     if _has_audio_input(body) or _wants_audio_output(body):
         resp = _chat_audio_response(body)
         resp["model"] = body.get("model", resp["model"])
+        resp["service_tier"] = _served_service_tier(body)
         return resp
 
     resp = copy.deepcopy(CHAT_RESPONSE)
     resp["model"] = body.get("model", resp["model"])
+    resp["service_tier"] = _served_service_tier(body)
     resp["choices"][0]["message"]["content"] = _text_protocol_tool_call(
         body, message_text
     ) or _mock_chat_content(body, message_text)
@@ -497,10 +513,28 @@ def embeddings(deployment=None):
     resp = copy.deepcopy(EMBEDDING_RESPONSE)
     resp["model"] = body.get("model", resp["model"])
     # One embedding per input, at the requested width: clients batch a list in
-    # one request and index the answers back onto it positionally.
+    # one request and index the answers back onto it positionally. A list of
+    # numbers is one input given as token ids, not a batch of inputs.
     raw_input = body.get("input")
-    count = len(raw_input) if isinstance(raw_input, list) else 1
-    vector = [0.001] * int(body.get("dimensions") or len(resp["data"][0]["embedding"]))
+    if isinstance(raw_input, list) and all(
+        isinstance(entry, (str, list)) for entry in raw_input
+    ):
+        count = len(raw_input)
+    else:
+        count = 1
+    if not raw_input:
+        return {
+            "error": {
+                "type": "invalid_request_error",
+                "message": "'input' is a required property",
+            }
+        }, 400
+    default_width = len(EMBEDDING_RESPONSE["data"][0]["embedding"])
+    try:
+        width = int(body.get("dimensions") or default_width)
+    except (TypeError, ValueError):
+        width = default_width
+    vector = [0.001] * max(1, min(width, default_width * 16))
     resp["data"] = [
         {"object": "embedding", "index": index, "embedding": list(vector)}
         for index in range(count)

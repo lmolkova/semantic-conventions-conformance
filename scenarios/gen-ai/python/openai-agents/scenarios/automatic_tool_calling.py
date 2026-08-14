@@ -8,7 +8,7 @@ call itself rather than handing it back, so the tool execution is a span of
 its own and not just a message in the next request.
 """
 
-from agents import Agent, RunConfig, Runner, function_tool
+from agents import Agent, ModelSettings, RunConfig, Runner, function_tool
 
 
 @function_tool
@@ -21,6 +21,13 @@ agent = Agent(
     name="weather_assistant",
     instructions="You are a helpful assistant.",
     model="gpt-4o-mini",
+    model_settings=ModelSettings(
+        max_tokens=100,
+        temperature=0.5,
+        top_p=0.9,
+        frequency_penalty=0.1,
+        presence_penalty=0.2,
+    ),
     tools=[get_current_weather],
 )
 

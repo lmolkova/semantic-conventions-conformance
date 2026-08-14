@@ -29,18 +29,81 @@ def mock_tool_argument_value(name, schema):
     return f"mock-{name}"
 
 
-def mock_json_schema_value(schema, name="value"):
+# Fixed answers for the string formats a client is most likely to parse back
+# into a typed value. A plain "mock-<name>" would fail that parse.
+_MOCK_STRING_FORMATS = {
+    "date-time": "2023-11-14T22:13:20Z",
+    "date": "2023-11-14",
+    "time": "22:13:20",
+    "uuid": "00000000-0000-4000-8000-000000000000",
+    "email": "mock@example.com",
+    "uri": "https://example.com/mock",
+}
+
+
+def _resolve(schema, root):
+    """Follow a local ``$ref`` to the fragment it names.
+
+    Any schema generated from a class rather than written by hand puts nested
+    types in ``$defs`` and refers to them, so a generator that does not follow
+    the reference answers a nested object with a string.
+    """
+    seen = set()
+    while isinstance(schema, dict) and "$ref" in schema:
+        reference = schema["$ref"]
+        if reference in seen or not reference.startswith("#/"):
+            return {}
+        seen.add(reference)
+        target = root
+        for step in reference[2:].split("/"):
+            if not isinstance(target, dict) or step not in target:
+                return {}
+            target = target[step]
+        schema = target
+    return schema or {}
+
+
+def _first_usable(alternatives, root):
+    """The first branch of an anyOf/oneOf that is not the null of an optional."""
+    for alternative in alternatives:
+        resolved = _resolve(alternative, root)
+        if resolved.get("type") != "null":
+            return resolved
+    return {}
+
+
+def mock_json_schema_value(schema, name="value", root=None, depth=0):
     """Build a deterministic value satisfying a JSON Schema fragment.
 
     Structured-output requests carry the schema the answer has to match, so the
     answer is generated from it rather than from a fixed payload: any scenario's
     schema is served without adding a branch here.
     """
-    schema = schema or {}
-    for keyword in ("anyOf", "oneOf", "allOf"):
+    root = schema if root is None else root
+    schema = _resolve(schema, root)
+    # A model that refers to itself has no finite answer, so the nesting is cut
+    # off with an empty value rather than recursing forever.
+    if depth > 8:
+        return {}
+
+    for keyword in ("anyOf", "oneOf"):
         alternatives = schema.get(keyword)
         if alternatives:
-            return mock_json_schema_value(alternatives[0], name)
+            return mock_json_schema_value(
+                _first_usable(alternatives, root), name, root, depth + 1
+            )
+    if schema.get("allOf"):
+        # allOf means every branch applies at once, so they are merged rather
+        # than picked between.
+        merged = {"type": "object", "properties": {}}
+        for alternative in schema["allOf"]:
+            resolved = _resolve(alternative, root)
+            merged["properties"].update(resolved.get("properties") or {})
+            for keyword, value in resolved.items():
+                if keyword not in ("properties", "$ref"):
+                    merged.setdefault(keyword, value)
+        schema = merged
+
     if "const" in schema:
         return schema["const"]
     if schema.get("enum"):
@@ -59,11 +122,15 @@ def mock_json_schema_value(schema, name="value"):
         # Every property, not just the required ones: an optional field left out
         # would make the answer depend on which fields the caller marked.
         return {
-            key: mock_json_schema_value(subschema, key)
+            key: mock_json_schema_value(subschema, key, root, depth + 1)
             for key, subschema in properties.items()
         }
     if schema_type == "array":
-        return [mock_json_schema_value(schema.get("items", {}), name)]
+        return [
+            mock_json_schema_value(schema.get("items", {}), name, root, depth + 1)
+        ]
+    if schema_type == "string" and schema.get("format") in _MOCK_STRING_FORMATS:
+        return _MOCK_STRING_FORMATS[schema["format"]]
     return mock_tool_argument_value(name, {"type": schema_type or "string"})
 
 
@@ -77,7 +144,14 @@ def mock_tool_arguments(tool):
     if not argument_names:
         return {"value": "mock-value"}
 
-    return {name: mock_tool_argument_value(name, properties.get(name, {})) for name in argument_names}
+    # Through the schema generator, so an argument that is an enum, a nested
+    # object or a reference gets a value its schema actually accepts.
+    return {
+        name: mock_json_schema_value(
+            properties.get(name, {}), name, root=parameters
+        )
+        for name in argument_names
+    }
 
 
 def encode_aws_event_stream_message(event_type, payload_bytes):

@@ -46,7 +46,9 @@ client.models.generate_content(
     model="gemini-2.0-flash-preview-image-generation",
     contents="Draw a picture of a cat",
     config=types.GenerateContentConfig(
+        system_instruction="You are a helpful assistant.",
         response_modalities=["TEXT", "IMAGE"],
         max_output_tokens=100,
+        temperature=0.5,
     ),
 )

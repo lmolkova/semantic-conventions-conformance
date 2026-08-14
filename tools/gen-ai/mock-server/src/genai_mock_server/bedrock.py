@@ -35,8 +35,10 @@ CONVERSE_TOOL_USE_RESPONSE = {
                 {
                     "toolUse": {
                         "toolUseId": "tooluse_mock_001",
-                        "name": "get_weather",
-                        "input": {"location": "Seattle"},
+                        # The name and input come from the tool the request
+                        # offered; a call is never invented for one it did not.
+                        "name": None,
+                        "input": {},
                     }
                 }
             ],
@@ -60,13 +62,31 @@ def _has_tool_result(body):
     return False
 
 
-def _converse_tool_use_response(body):
+def _tool_to_call(body):
+    """The tool the response should call, or None when none was offered.
+
+    `toolChoice` names one when the request forces it; otherwise the first
+    tool offered is the one called.
+    """
+    tool_config = body.get("toolConfig") or {}
+    specifications = [
+        tool["toolSpec"]
+        for tool in tool_config.get("tools") or []
+        if isinstance(tool, dict) and tool.get("toolSpec", {}).get("name")
+    ]
+    if not specifications:
+        return None
+    chosen = ((tool_config.get("toolChoice") or {}).get("tool") or {}).get("name")
+    for specification in specifications:
+        if specification["name"] == chosen:
+            return specification
+    return specifications[0]
+
+
+def _converse_tool_use_response(specification):
     response = copy.deepcopy(CONVERSE_TOOL_USE_RESPONSE)
-    tools = (body.get("toolConfig") or {}).get("tools") or []
-    specification = (tools[0] if tools else {}).get("toolSpec") or {}
     tool_use = response["output"]["message"]["content"][0]["toolUse"]
-    if specification.get("name"):
-        tool_use["name"] = specification["name"]
+    tool_use["name"] = specification["name"]
     schema = (specification.get("inputSchema") or {}).get("json") or {}
     tool_use["input"] = mock_tool_arguments({"parameters": schema})
     return response
@@ -97,9 +117,11 @@ def _stream_converse():
 @bp.route("/model/<path:model_id>/converse", methods=["POST"])
 def bedrock_converse(model_id):
     body = request.get_json(silent=True) or {}
-    # Offered tools but no tool result yet: call the tool, else answer.
-    if body.get("toolConfig") and not _has_tool_result(body):
-        return _converse_tool_use_response(body)
+    # Offered a tool but no tool result yet: call it, else answer.
+    if not _has_tool_result(body):
+        specification = _tool_to_call(body)
+        if specification is not None:
+            return _converse_tool_use_response(specification)
     return CONVERSE_RESPONSE
 
 

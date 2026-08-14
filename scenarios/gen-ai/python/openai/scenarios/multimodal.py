@@ -46,6 +46,7 @@ client.chat.completions.create(
     modalities=["text", "audio"],
     audio={"voice": "alloy", "format": "wav"},
     messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
         {
             "role": "user",
             "content": [
@@ -58,4 +59,5 @@ client.chat.completions.create(
         },
     ],
     max_tokens=100,
+    temperature=0.5,
 )
