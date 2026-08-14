@@ -120,12 +120,9 @@ Each class is one file, and each file gets its own weaver report.
 
 ## Content capture
 
-Every directory sets `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to
-`SPAN_AND_EVENT`, so one run covers content on spans and the
-`gen_ai.client.inference.operation.details` event.
-`opentelemetry-botocore` reads that variable as a boolean rather than as a
-mode, so its directory sets `true`; there is no other way to turn content on
-there.
+Every directory turns content capture on with
+`OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT`, so one run covers
+content on spans and the `gen_ai.client.inference.operation.details` event.
 
 Set it per directory, never per scenario. `data.json` is a union across the
 directory's scenarios, so a directory mixing capture modes records the union

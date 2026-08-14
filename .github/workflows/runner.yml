@@ -169,11 +169,10 @@ jobs:
 
   # The heavy gate: installs every scenario's dependencies, runs the programs,
   # and checks the committed data.json files still match what they emit.
+
   scenarios:
     name: Scenarios
     runs-on: ubuntu-latest
-    # Eight SDK stacks and a weaver run per scenario: slow, but far short of
-    # the 6 hour default a hang would burn.
     timeout-minutes: 45
     concurrency:
       group: ${{ github.workflow }}-scenarios-${{ github.event.pull_request.number || github.ref }}
@@ -189,8 +188,6 @@ jobs:
         with:
           python-version: "3.14"
 
-      # Every scenario runs `uv run --project .` in its own directory, so uv,
-      # not pip, installs what the programs need.
       - name: Set up uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
@@ -217,20 +214,12 @@ jobs:
             -e tools/http/mock-server \
             -e tools/http/runner
 
-      # The pinned registries and the coverage models resolved from them,
-      # once, shared by every scenario directory.
       - name: Cache the semconv registries
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/otel-conformance/semconv
           key: semconv-${{ hashFiles('tools/**/versions.env') }}
 
-      # Plain `otel-conformance`: each directory names the wrapper that
-      # supplies its registry and reduction, so one loop covers every domain.
-      #
-      # --report-only: a semconv finding is a result this repo records, not a
-      # build to break. What must not change silently is data.json, which the
-      # next step diffs.
       - name: Run every scenario
         env:
           FORCE_COLOR: "1" # the log renders ANSI; the step's stdout is no tty
@@ -240,8 +229,6 @@ jobs:
             find scenarios -name .venv -prune -o \
               -name conformance.yaml -exec dirname {} \; | sort
           )
-          # One failure must not skip the rest: the next step can only check
-          # the data.json files a run actually rewrote.
           status=0
           for directory in "${directories[@]}"; do
             echo "::group::$directory"
@@ -250,17 +237,9 @@ jobs:
           done
           exit "$status"
 
-      # A run rewrites each directory's data.json. Unchanged means the
-      # committed coverage still matches what the implementations emit;
-      # changed means either an implementation moved or a registry pin did,
-      # and the new file belongs in the PR.
-      # Runs even after a failure: a crash in one directory says nothing about
-      # whether the others drifted.
       - name: Check the committed coverage is up to date
         if: ${{ !cancelled() }}
         run: |
-          # --intent-to-add first: a new scenario directory whose data.json
-          # was never `git add`ed is untracked, and `git diff` can't see it.
           git add --intent-to-add -- scenarios
           if ! git diff --exit-code -- scenarios; then
             echo "::error::the committed data.json files are out of date — run the scenarios and commit the result"

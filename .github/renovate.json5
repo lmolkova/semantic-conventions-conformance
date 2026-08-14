@@ -16,8 +16,7 @@
     },
     {
       "groupName": "{{packageFileDir}}",
-      "matchFileNames": ["scenarios/**/pyproject.toml"],
-      "schedule": ["before 8am on Monday"]
+      "matchFileNames": ["scenarios/**/pyproject.toml"]
     },
     {
       // group all GitHub Actions updates into a single weekly PR
