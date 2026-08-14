@@ -35,8 +35,7 @@ CONVERSE_TOOL_USE_RESPONSE = {
                 {
                     "toolUse": {
                         "toolUseId": "tooluse_mock_001",
-                        # The name and input come from the tool the request
-                        # offered; a call is never invented for one it did not.
+                        # Filled from the tool the request offered.
                         "name": None,
                         "input": {},
                     }
@@ -117,7 +116,6 @@ def _stream_converse():
 @bp.route("/model/<path:model_id>/converse", methods=["POST"])
 def bedrock_converse(model_id):
     body = request.get_json(silent=True) or {}
-    # Offered a tool but no tool result yet: call it, else answer.
     if not _has_tool_result(body):
         specification = _tool_to_call(body)
         if specification is not None:

@@ -172,8 +172,8 @@ jobs:
   scenarios:
     name: Scenarios
     runs-on: ubuntu-latest
-    # Eight directories, each syncing a full SDK stack and running weaver per
-    # scenario. Long, but nowhere near the 6 hour default a hang would burn.
+    # Eight SDK stacks and a weaver run per scenario: slow, but far short of
+    # the 6 hour default a hang would burn.
     timeout-minutes: 45
     concurrency:
       group: ${{ github.workflow }}-scenarios-${{ github.event.pull_request.number || github.ref }}
@@ -240,9 +240,8 @@ jobs:
             find scenarios -name .venv -prune -o \
               -name conformance.yaml -exec dirname {} \; | sort
           )
-          # Every directory runs even when one fails: the point of the job is
-          # the measurement across all of them, and the next step can only
-          # check the data.json files a run actually rewrote.
+          # One failure must not skip the rest: the next step can only check
+          # the data.json files a run actually rewrote.
           status=0
           for directory in "${directories[@]}"; do
             echo "::group::$directory"
@@ -255,8 +254,8 @@ jobs:
       # committed coverage still matches what the implementations emit;
       # changed means either an implementation moved or a registry pin did,
       # and the new file belongs in the PR.
-      # Runs even when a scenario failed: a crash in one directory says nothing
-      # about whether the other seven drifted, and both are worth seeing.
+      # Runs even after a failure: a crash in one directory says nothing about
+      # whether the others drifted.
       - name: Check the committed coverage is up to date
         if: ${{ !cancelled() }}
         run: |

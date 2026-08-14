@@ -11,7 +11,7 @@ models, so that half of openai/scenarios/multimodal.py has no counterpart.
 from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 
-# A 1x1 transparent PNG. The bytes are never decoded by anything under test.
+# A 1x1 transparent PNG; nothing under test decodes it.
 IMAGE = (
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk"
     "YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="

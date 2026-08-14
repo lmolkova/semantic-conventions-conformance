@@ -14,8 +14,7 @@ reports back.
 
 from openai import OpenAI
 
-# A 1x1 transparent PNG. The bytes are never decoded by anything under test;
-# what matters is that the request carries an image part.
+# A 1x1 transparent PNG; nothing under test decodes it.
 IMAGE = (
     "data:image/png;base64,"
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk"

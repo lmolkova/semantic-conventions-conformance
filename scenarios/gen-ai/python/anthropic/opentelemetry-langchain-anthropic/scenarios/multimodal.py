@@ -10,7 +10,7 @@ document, carried as content blocks on a human message.
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage
 
-# A 1x1 transparent PNG. The bytes are never decoded by anything under test.
+# A 1x1 transparent PNG; nothing under test decodes it.
 IMAGE = (
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk"
     "YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="

@@ -11,8 +11,7 @@ writes into ``gen_ai.input.messages`` validate against the registry schemas.
 
 from anthropic import Anthropic
 
-# A 1x1 transparent PNG and a one-page PDF. Neither is decoded by anything
-# under test; what matters is that the request carries the part.
+# A 1x1 transparent PNG and a one-page PDF; nothing under test decodes them.
 IMAGE = (
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk"
     "YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="

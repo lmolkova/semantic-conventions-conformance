@@ -9,16 +9,14 @@ server:
   run: genai-mock-server --port ${PORT}
 
 env:
-  # botocore reads a per-service endpoint override, so only bedrock-runtime
-  # goes to the mock. The credentials and region are required to sign the
-  # request; nothing verifies them.
+  # A per-service override, so only bedrock-runtime goes to the mock. The
+  # credentials are needed to sign the request; nothing verifies them.
   AWS_ENDPOINT_URL_BEDROCK_RUNTIME: ${MOCK_SERVER_URL}
   AWS_ACCESS_KEY_ID: test_access_key_id
   AWS_SECRET_ACCESS_KEY: test_secret_access_key
   AWS_DEFAULT_REGION: us-east-1
-  # This instrumentation reads the capture flag as a boolean, not as the
-  # SPAN_ONLY / SPAN_AND_EVENT mode the other directories set, so content is
-  # turned on in the form it understands.
+  # This instrumentation reads the flag as a boolean, not as the mode the
+  # other directories set.
   OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "true"
 
 scenarios:

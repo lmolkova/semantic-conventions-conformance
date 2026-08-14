@@ -174,8 +174,6 @@ def test_chat_echoes_the_requested_model(client):
     assert body["model"] == "gpt-5"
     assert body["choices"][0]["message"]["role"] == "assistant"
     assert body["usage"]["total_tokens"] > 0
-    # OpenAI reports which service tier actually served the request, and the
-    # conventions have an attribute for it.
     assert body["service_tier"] == "default"
 
 
@@ -272,8 +270,7 @@ def test_bedrock_converse_calls_the_tool_the_request_chose(client):
 
 
 def test_bedrock_converse_answers_when_no_tool_is_offered(client):
-    # An empty toolConfig offers nothing, so inventing a call would hand the
-    # client a tool it does not have.
+    # Inventing a call would hand the client a tool it does not have.
     response = client.post(
         "/model/anthropic.claude-v2/converse",
         json={
@@ -285,7 +282,6 @@ def test_bedrock_converse_answers_when_no_tool_is_offered(client):
 
 
 def test_embeddings_treat_token_ids_as_one_input(client):
-    # A list of numbers is one input given as token ids, not a batch.
     response = client.post(
         "/v1/embeddings",
         json={"model": "text-embedding-3-small", "input": [1, 2, 3, 4, 5]},
@@ -348,8 +344,7 @@ def test_streaming_chat_reports_the_service_tier(client):
 
 
 def test_json_schema_follows_refs_and_skips_null_branches(client):
-    # The shape any schema generated from a class has: nested types in $defs,
-    # optional fields as anyOf with a null branch.
+    # The shape a schema generated from a class has.
     response = client.post(
         "/v1/chat/completions",
         json={
@@ -417,8 +412,7 @@ def test_json_schema_cuts_off_a_self_referencing_model(client):
             },
         },
     )
-    # Terminates rather than recursing forever; the depth it stops at is not
-    # what matters, only that it answers.
+    # Only that it terminates matters, not the depth it stops at.
     assert response.status_code == 200
     json.loads(response.json["choices"][0]["message"]["content"])
 

@@ -9,8 +9,6 @@ server:
   run: genai-mock-server --port ${PORT}
 
 env:
-  # langchain reaches the mock through its OpenAI chat model, so the client
-  # library's own variables are what point it there.
   OPENAI_BASE_URL: ${MOCK_SERVER_URL}/v1
   OPENAI_API_KEY: test_openai_api_key
   OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: SPAN_AND_EVENT

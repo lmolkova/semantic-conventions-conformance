@@ -512,9 +512,8 @@ def embeddings(deployment=None):
     body = request.get_json(silent=True) or {}
     resp = copy.deepcopy(EMBEDDING_RESPONSE)
     resp["model"] = body.get("model", resp["model"])
-    # One embedding per input, at the requested width: clients batch a list in
-    # one request and index the answers back onto it positionally. A list of
-    # numbers is one input given as token ids, not a batch of inputs.
+    # Clients batch a list in one request and index the answers back onto it
+    # positionally. A list of numbers is one input given as token ids.
     raw_input = body.get("input")
     if isinstance(raw_input, list) and all(
         isinstance(entry, (str, list)) for entry in raw_input

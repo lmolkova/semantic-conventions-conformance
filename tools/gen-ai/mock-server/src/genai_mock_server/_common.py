@@ -29,8 +29,7 @@ def mock_tool_argument_value(name, schema):
     return f"mock-{name}"
 
 
-# Fixed answers for the string formats a client is most likely to parse back
-# into a typed value. A plain "mock-<name>" would fail that parse.
+# A client parses these back into a typed value, so "mock-<name>" would fail.
 _MOCK_STRING_FORMATS = {
     "date-time": "2023-11-14T22:13:20Z",
     "date": "2023-11-14",
@@ -81,8 +80,7 @@ def mock_json_schema_value(schema, name="value", root=None, depth=0):
     """
     root = schema if root is None else root
     schema = _resolve(schema, root)
-    # A model that refers to itself has no finite answer, so the nesting is cut
-    # off with an empty value rather than recursing forever.
+    # A model that refers to itself has no finite answer.
     if depth > 8:
         return {}
 
@@ -93,8 +91,6 @@ def mock_json_schema_value(schema, name="value", root=None, depth=0):
                 _first_usable(alternatives, root), name, root, depth + 1
             )
     if schema.get("allOf"):
-        # allOf means every branch applies at once, so they are merged rather
-        # than picked between.
         merged = {"type": "object", "properties": {}}
         for alternative in schema["allOf"]:
             resolved = _resolve(alternative, root)
@@ -119,8 +115,8 @@ def mock_json_schema_value(schema, name="value", root=None, depth=0):
 
     if schema_type == "object":
         properties = schema.get("properties", {})
-        # Every property, not just the required ones: an optional field left out
-        # would make the answer depend on which fields the caller marked.
+        # Every property, not just the required ones: otherwise the answer
+        # depends on which fields the caller happened to mark.
         return {
             key: mock_json_schema_value(subschema, key, root, depth + 1)
             for key, subschema in properties.items()
@@ -144,8 +140,6 @@ def mock_tool_arguments(tool):
     if not argument_names:
         return {"value": "mock-value"}
 
-    # Through the schema generator, so an argument that is an enum, a nested
-    # object or a reference gets a value its schema actually accepts.
     return {
         name: mock_json_schema_value(
             properties.get(name, {}), name, root=parameters
