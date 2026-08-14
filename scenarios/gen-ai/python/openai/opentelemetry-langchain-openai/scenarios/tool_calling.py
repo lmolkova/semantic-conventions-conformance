@@ -5,22 +5,34 @@
 
 Two round trips driven by hand, matching openai/scenarios/tool_calling.py:
 the tool definitions and the requested call, then the tool result travelling
-back as input. langchain binds the tools; it does not run them here.
+back as input. langchain binds the tool as a schema and does not run it: the result is
+built here, so no tool executes and no execute_tool span is emitted. Running
+the tool is what automatic_tool_calling covers, in the agentic directory.
 """
 
 from langchain_core.messages import ToolMessage
-from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 
-
-@tool
-def get_current_weather(location: str) -> str:
-    """Get the current weather in a given location."""
-    return f"70 degrees and sunny in {location}"
-
+TOOL = {
+    "type": "function",
+    "function": {
+        "name": "get_current_weather",
+        "description": "Get the current weather in a given location",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "The city and state, e.g. Boston, MA",
+                },
+            },
+            "required": ["location"],
+        },
+    },
+}
 
 model = ChatOpenAI(model="gpt-4o-mini", max_tokens=100, temperature=0.5)
-with_tools = model.bind_tools([get_current_weather])
+with_tools = model.bind_tools([TOOL])
 
 messages = [
     ("system", "You are a helpful assistant."),
