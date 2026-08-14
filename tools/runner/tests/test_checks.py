@@ -374,7 +374,63 @@ def test_coverage_reduces_a_run(tmp_path: Path) -> None:
         ],
         "metrics": ["gen_ai.client.operation.duration"],
         "events": ["custom.event"],
+        "advices": [],
     }
+
+
+def test_coverage_records_the_violations_a_run_drew(tmp_path: Path) -> None:
+    """Deduplicated, and only violations: lesser advice isn't a finding."""
+    said = {
+        "id": "expected_attribute_missing",
+        "level": "violation",
+        "message": "missing server.address",
+        "context": {"attr": "server.address"},
+    }
+    for name in ("inference", "streaming"):
+        (tmp_path / f"{name}.json").write_text(
+            json.dumps(
+                {
+                    "samples": [
+                        {"live_check_result": {"all_advice": [said]}},
+                        {
+                            "live_check_result": {
+                                "all_advice": [
+                                    said,
+                                    {
+                                        "id": "not_stable",
+                                        "level": "improvement",
+                                        "message": "not recorded",
+                                        "context": None,
+                                    },
+                                ]
+                            }
+                        },
+                    ],
+                    "statistics": {},
+                }
+            )
+        )
+    spec = PackageSpec(
+        instrumented_library="demo",
+        instrumentation_library="demo-instrumentation",
+        directory=tmp_path,
+        env={},
+        weaver=WeaverSpec(),
+        server=ServerSpec(),
+        setup=None,
+        scenarios={
+            "inference": scenario(spans=()),
+            "streaming": scenario(spans=()),
+        },
+    )
+
+    assert coverage(tmp_path, spec)["advices"] == [
+        {
+            "id": "expected_attribute_missing",
+            "message": "missing server.address",
+            "context": {"attr": "server.address"},
+        },
+    ]
 
 
 def test_a_violation_without_context_accepts_every_finding_with_that_id() -> (

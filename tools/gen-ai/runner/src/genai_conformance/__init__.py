@@ -66,6 +66,7 @@ DOMAIN = Domain(
     ref=require_pin(_HERE / "versions.env", "SEMCONV_GENAI_REF"),
     classifier=classifier,
     policies=_HERE / "policies",
+    config=_HERE / "weaver.toml",
     advice_data=_advice_data,
 )
 

@@ -6,7 +6,8 @@
 The default reduction, and the reason a repo needs no code of its own to get
 a coverage artifact: for every span expectation a scenario declares, the
 attributes its spans actually carried, plus the metrics and events the run
-produced. A caller wanting a different shape passes its own reduction.
+produced, plus the violations weaver found in them. A caller wanting a
+different shape passes its own reduction.
 
 A run *always* reduces to what it saw, however badly it went. Coverage is an
 observation, and an implementation that violates the conventions everywhere is
@@ -21,6 +22,7 @@ import json
 from pathlib import Path
 
 from ._checks import observed_spans, seen_events, seen_metrics, selects
+from ._report import Advice, advice_list, collect_advice
 from ._spec import PackageSpec, SpanMatch
 
 
@@ -30,6 +32,7 @@ def coverage(report_dir: Path, spec: PackageSpec) -> dict[str, object]:
     attributes: dict[str, set[str]] = {}
     metrics: set[str] = set()
     events: set[str] = set()
+    advices: set[Advice] = set()
 
     def bucket(match: SpanMatch) -> set[str]:
         key = match.key()
@@ -44,6 +47,7 @@ def coverage(report_dir: Path, spec: PackageSpec) -> dict[str, object]:
         statistics = report.get("statistics", {})
         metrics |= seen_metrics(statistics)
         events |= seen_events(statistics)
+        advices |= collect_advice(report)
 
         spans = observed_spans(report)
         selected: set[int] = set()
@@ -74,4 +78,5 @@ def coverage(report_dir: Path, spec: PackageSpec) -> dict[str, object]:
         ],
         "metrics": sorted(metrics),
         "events": sorted(events),
+        "advices": advice_list(advices),
     }

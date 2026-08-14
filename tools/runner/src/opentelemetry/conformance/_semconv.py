@@ -18,7 +18,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Mapping
 
-from ._report import ClassifySpan, Observed, read
+from ._report import ClassifySpan, Observed, advice_list, read
 
 if TYPE_CHECKING:
     from ._spec import PackageSpec
@@ -51,9 +51,9 @@ def _reduce(
 ) -> dict[str, object]:
     """A parsed run, reduced to the committed data-file shape.
 
-    All three keys are always there, empty or not: a run that emitted no
-    metrics has to read back as that, and a signal an implementation stops
-    emitting should show up as an empty object rather than a vanishing key.
+    Every key is always there, empty or not: a run that emitted no metrics has
+    to read back as that, and a signal an implementation stops emitting should
+    show up as an empty object rather than a vanishing key.
     """
     return {
         # A span type is recognised by what it carried, so one with no
@@ -61,6 +61,7 @@ def _reduce(
         "spans": _signals(observed.spans, model.get("spans", {}), bare=False),
         "events": _signals(observed.events, model.get("events", {})),
         "metrics": _signals(observed.metrics, model.get("metrics", {})),
+        "advices": advice_list(observed.advices),
     }
 
 

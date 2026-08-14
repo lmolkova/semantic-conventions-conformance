@@ -84,5 +84,48 @@
       "gen_ai.token.type",
       "server.address"
     ]
-  }
+  },
+  "advices": [
+    {
+      "id": "type_mismatch",
+      "message": "Attribute 'gen_ai.request.top_k' has type 'double'. Type should be 'int'.",
+      "context": {
+        "attribute_key": "gen_ai.request.top_k",
+        "attribute_type": "double",
+        "expected": "int"
+      }
+    },
+    {
+      "id": "genai_expected_attribute_missing",
+      "message": "Span 'embeddings text-embedding-004' (operation 'embeddings') is missing expected attribute 'gen_ai.request.encoding_formats'",
+      "context": {
+        "missing_attribute": "gen_ai.request.encoding_formats",
+        "operation": "embeddings"
+      }
+    },
+    {
+      "id": "genai_expected_attribute_missing",
+      "message": "Span 'embeddings text-embedding-004' (operation 'embeddings') is missing expected attribute 'gen_ai.response.model'",
+      "context": {
+        "missing_attribute": "gen_ai.response.model",
+        "operation": "embeddings"
+      }
+    },
+    {
+      "id": "genai_expected_attribute_missing",
+      "message": "Span 'generate_content gemini-2.0-flash' (operation 'generate_content') is missing expected attribute 'gen_ai.response.id'",
+      "context": {
+        "missing_attribute": "gen_ai.response.id",
+        "operation": "generate_content"
+      }
+    },
+    {
+      "id": "genai_expected_attribute_missing",
+      "message": "Span 'generate_content gemini-2.0-flash' (operation 'generate_content') is missing expected attribute 'gen_ai.response.model'",
+      "context": {
+        "missing_attribute": "gen_ai.response.model",
+        "operation": "generate_content"
+      }
+    }
+  ]
 }

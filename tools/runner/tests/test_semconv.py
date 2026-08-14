@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from opentelemetry.conformance._report import Observed, read
+from opentelemetry.conformance._report import Observed, advice_list, read
 from opentelemetry.conformance._semconv import _reduce, semconv_coverage
 
 MODEL = {
@@ -141,6 +141,128 @@ def test_a_metric_carries_the_attributes_of_all_its_data_points(
     assert carried == {"http.request.method", "error.type"}
 
 
+# ── advice ────────────────────────────────────────────────────────
+
+
+def advised(*advice: object) -> dict:
+    return {"live_check_result": {"all_advice": list(advice)}}
+
+
+def advice(
+    message: str,
+    context: object = None,
+    advice_id: str = "some_advice",
+    level: str = "violation",
+) -> dict:
+    return {
+        "id": advice_id,
+        "level": level,
+        "message": message,
+        "context": context,
+    }
+
+
+def test_the_same_advice_seen_twice_is_recorded_once(tmp_path) -> None:
+    """One gap reported on every span it touches is still one gap."""
+    said = advice("missing server.address", {"attr": "a"})
+    write_report(
+        tmp_path,
+        "one",
+        samples=[span_sample("server", advised(said)), advised(said)],
+    )
+    write_report(tmp_path, "two", samples=[advised(said)])
+
+    assert advice_list(read(tmp_path, by_kind).advices) == [
+        {
+            "id": "some_advice",
+            "message": "missing server.address",
+            "context": {"attr": "a"},
+        }
+    ]
+
+
+def test_only_violations_are_recorded(tmp_path) -> None:
+    """The rest is what could be better, not what an implementation got wrong."""
+    write_report(
+        tmp_path,
+        "one",
+        samples=[
+            advised(
+                advice("fine", level="information"),
+                advice("could be better", level="improvement"),
+                advice("wrong"),
+            )
+        ],
+    )
+
+    recorded = advice_list(read(tmp_path, by_kind).advices)
+
+    assert [item["message"] for item in recorded] == ["wrong"]
+
+
+def test_advice_weaver_gave_no_context_for_records_none(tmp_path) -> None:
+    """A missing context is left out, not committed as a null."""
+    write_report(tmp_path, "one", samples=[advised(advice("no context"))])
+
+    assert advice_list(read(tmp_path, by_kind).advices) == [
+        {
+            "id": "some_advice",
+            "message": "no context",
+        }
+    ]
+
+
+def test_advice_is_ordered_by_message(tmp_path) -> None:
+    write_report(
+        tmp_path,
+        "one",
+        samples=[advised(advice("z"), advice("a"), advice("n"))],
+    )
+
+    recorded = advice_list(read(tmp_path, by_kind).advices)
+
+    assert [item["message"] for item in recorded] == ["a", "n", "z"]
+
+
+def test_one_message_about_two_things_is_two_advices(tmp_path) -> None:
+    write_report(
+        tmp_path,
+        "one",
+        samples=[
+            advised(
+                advice("attribute missing", {"attr": "b"}),
+                advice("attribute missing", {"attr": "a"}),
+            )
+        ],
+    )
+
+    recorded = advice_list(read(tmp_path, by_kind).advices)
+
+    assert [item["context"] for item in recorded] == [
+        {"attr": "a"},
+        {"attr": "b"},
+    ]
+
+
+def test_the_reduction_records_the_advice_a_run_drew(tmp_path) -> None:
+    write_report(
+        tmp_path,
+        "one",
+        samples=[advised(advice("no", {"attr": "a"}))],
+    )
+
+    build = semconv_coverage(by_kind, lambda: MODEL)
+    data = build(tmp_path, None)  # pyright: ignore[reportArgumentType]
+
+    assert data["advices"] == [  # pyright: ignore[reportIndexIssue]
+        {
+            "id": "some_advice",
+            "message": "no",
+            "context": {"attr": "a"},
+        }
+    ]
+
+
 # ── reducing against the model ─────────────────────────────────────
 
 
@@ -192,6 +314,7 @@ def test_every_section_is_present_even_when_empty() -> None:
         "spans": {},
         "events": {},
         "metrics": {},
+        "advices": [],
     }
 
 
@@ -209,8 +332,8 @@ def test_the_file_is_written_in_a_stable_order() -> None:
         MODEL,
     )
 
-    assert list(data) == ["spans", "events", "metrics"]
-    for section in data.values():
+    assert list(data) == ["spans", "events", "metrics", "advices"]
+    for section in (data["spans"], data["events"], data["metrics"]):
         assert list(section) == sorted(section)
     assert data["spans"]["http.server"] == sorted(
         data["spans"]["http.server"]

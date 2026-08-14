@@ -29,5 +29,86 @@
       "server.address",
       "server.port"
     ]
-  }
+  },
+  "advices": [
+    {
+      "id": "missing_attribute",
+      "message": "Attribute 'gen_ai.system' does not exist in the registry.",
+      "context": {
+        "attribute_key": "gen_ai.system"
+      }
+    },
+    {
+      "id": "missing_attribute",
+      "message": "Attribute 'retry_attempts' does not exist in the registry.",
+      "context": {
+        "attribute_key": "retry_attempts"
+      }
+    },
+    {
+      "id": "missing_attribute",
+      "message": "Attribute 'rpc.service' does not exist in the registry.",
+      "context": {
+        "attribute_key": "rpc.service"
+      }
+    },
+    {
+      "id": "missing_attribute",
+      "message": "Attribute 'rpc.system' does not exist in the registry.",
+      "context": {
+        "attribute_key": "rpc.system"
+      }
+    },
+    {
+      "id": "missing_event",
+      "message": "Event 'gen_ai.assistant.message' does not exist in the registry."
+    },
+    {
+      "id": "missing_event",
+      "message": "Event 'gen_ai.choice' does not exist in the registry."
+    },
+    {
+      "id": "missing_event",
+      "message": "Event 'gen_ai.system.message' does not exist in the registry."
+    },
+    {
+      "id": "missing_event",
+      "message": "Event 'gen_ai.tool.message' does not exist in the registry."
+    },
+    {
+      "id": "missing_event",
+      "message": "Event 'gen_ai.user.message' does not exist in the registry."
+    },
+    {
+      "id": "required_attribute_not_present",
+      "message": "Required attribute 'gen_ai.provider.name' is not present.",
+      "context": {
+        "attribute_key": "gen_ai.provider.name"
+      }
+    },
+    {
+      "id": "genai_expected_attribute_missing",
+      "message": "Span 'chat anthropic.claude-3-5-sonnet-20240620-v1:0' (operation 'chat') is missing expected attribute 'gen_ai.provider.name'",
+      "context": {
+        "missing_attribute": "gen_ai.provider.name",
+        "operation": "chat"
+      }
+    },
+    {
+      "id": "genai_expected_attribute_missing",
+      "message": "Span 'chat anthropic.claude-3-5-sonnet-20240620-v1:0' (operation 'chat') is missing expected attribute 'gen_ai.response.id'",
+      "context": {
+        "missing_attribute": "gen_ai.response.id",
+        "operation": "chat"
+      }
+    },
+    {
+      "id": "genai_expected_attribute_missing",
+      "message": "Span 'chat anthropic.claude-3-5-sonnet-20240620-v1:0' (operation 'chat') is missing expected attribute 'gen_ai.response.model'",
+      "context": {
+        "missing_attribute": "gen_ai.response.model",
+        "operation": "chat"
+      }
+    }
+  ]
 }

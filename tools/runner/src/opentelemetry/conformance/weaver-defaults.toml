@@ -1,8 +1,8 @@
 # Copyright The OpenTelemetry Authors
 # SPDX-License-Identifier: Apache-2.0
 #
-# Findings filtered out for every domain. Used unless a domain or a caller
-# declares a weaver config of its own, which replaces this file.
+# Findings filtered out for every domain. A domain's own config is appended to
+# this file; a caller's `weaver.config` replaces both.
 
 # Resource attributes the OTel SDK sets, which belong to no domain registry —
 # see https://github.com/open-telemetry/weaver/issues/1456.

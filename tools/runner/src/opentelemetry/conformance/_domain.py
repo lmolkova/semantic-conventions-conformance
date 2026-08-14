@@ -38,6 +38,8 @@ from ._spec import ServerSpec, WeaverSpec
 
 # Span invariants every domain is checked against; see policies/.
 _RUNNER_POLICIES = Path(__file__).parent / "policies"
+# Findings filtered out whatever the domain; see weaver-defaults.toml.
+_RUNNER_CONFIG = Path(__file__).parent / "weaver-defaults.toml"
 
 CoverageModel = Mapping[str, Any]
 
@@ -61,6 +63,8 @@ class Domain:
     registry_dir: str = "model"
     # Advice policies of this domain's own, loaded on top of the runner's.
     policies: Path | None = None
+    # A ``.weaver.toml`` of this domain's own, appended to the runner's.
+    config: Path | None = None
     # A ``--advice-data`` glob, given the registry the run validates against.
     # A callable because some registries need patching on the way — see the
     # GenAI domain. It must not write into the registry it is given: that is
@@ -121,6 +125,26 @@ class Domain:
                 shutil.copy(policy, assembled / policy.name)
         return assembled
 
+    @cached_property
+    def weaver_config(self) -> Path:
+        """The runner's config and this domain's, in one file.
+
+        Weaver takes a single ``--config``, so the two are concatenated.
+        Appending rather than merging is enough because a config is filters:
+        every table in either file is one more thing left out, and neither
+        file overrides a key of the other's.
+        """
+        sources = [_RUNNER_CONFIG] + ([self.config] if self.config else [])
+        assembled = cache_dir() / "weaver-config" / f"{self.name}.toml"
+        assembled.parent.mkdir(parents=True, exist_ok=True)
+        assembled.write_text(
+            "\n".join(
+                source.read_text(encoding="utf-8") for source in sources
+            ),
+            encoding="utf-8",
+        )
+        return assembled
+
     def weaver_defaults(
         self,
         registry: Path | None = None,
@@ -148,6 +172,7 @@ class Domain:
             registry=str(registry),
             policies=str(self.advice_policies),
             advice_data=advice_data,
+            config=str(self.weaver_config),
         )
 
     @property

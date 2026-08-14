@@ -1,0 +1,14 @@
+# Copyright The OpenTelemetry Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+# Findings filtered out for GenAI runs, appended to the runner's defaults.
+
+# Bedrock should document its flavour of GenAI spans
+# and by doing this make core seconv attributes visible.
+[[live-check.finding_filters]]
+signal_type = "span"
+exclude_samples = [
+  "cloud.region",
+  "http.status_code",
+  "rpc.method",
+]

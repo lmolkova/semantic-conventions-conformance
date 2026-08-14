@@ -29,13 +29,17 @@ def _domain_fixture(tmp_path, monkeypatch):
 
     monkeypatch.setattr(_domain, "provision", unreachable)
 
-    def build(advice_data: Callable[[Path], str] | None = None) -> Domain:
+    def build(
+        advice_data: Callable[[Path], str] | None = None,
+        config: Path | None = None,
+    ) -> Domain:
         return Domain(
             name="test-conformance",
             repo="open-telemetry/semantic-conventions",
             ref="deadbeef",
             classifier=classifier,
             advice_data=advice_data,
+            config=config,
         )
 
     return build
@@ -63,3 +67,32 @@ def test_advice_data_is_read_from_the_registry_in_use(
 
     assert seen == [local]
     assert defaults.advice_data == str(local / "*.json")
+
+
+def signal_types(config: Path) -> list[str]:
+    """The filters a merged config declares, in file order."""
+    return [
+        line.split("=")[1].strip().strip('"')
+        for line in config.read_text().splitlines()
+        if line.startswith("signal_type")
+    ]
+
+
+def test_a_domain_config_is_filtered_on_top_of_the_runners(
+    domain, tmp_path
+) -> None:
+    config = tmp_path / "weaver.toml"
+    config.write_text(
+        "[[live-check.finding_filters]]\n"
+        'signal_type = "span"\n'
+        'exclude_samples = ["rpc.method"]\n'
+    )
+
+    merged = domain(config=config).weaver_config
+
+    assert signal_types(merged) == ["resource", "span"]
+    assert '"rpc.method"' in merged.read_text()
+
+
+def test_a_domain_without_a_config_gets_the_runners(domain) -> None:
+    assert signal_types(domain().weaver_config) == ["resource"]

@@ -159,7 +159,7 @@ run lands in the same place however it was invoked:
 
 The reduction is the coverage this package computes — for each span a scenario
 declares, the attributes it actually carried, plus the metrics and events
-seen:
+seen, plus what weaver said about them:
 
 ```json
 {
@@ -170,12 +170,27 @@ seen:
     }
   ],
   "metrics": ["gen_ai.client.operation.duration"],
-  "events": []
+  "events": [],
+  "advices": [
+    {
+      "id": "genai_expected_attribute_missing",
+      "message": "Span 'chat gpt-4o-mini' … is missing expected attribute 'server.address'",
+      "context": {"missing_attribute": "server.address", "operation": "chat"}
+    }
+  ]
 }
 ```
 
-Each entry pairs a `match` — written the way the scenario declared it — with
-the attributes the spans it selected carried.
+Each span entry pairs a `match` — written the way the scenario declared it —
+with the attributes the spans it selected carried.
+
+`advices` is every violation weaver reported over the run, deduplicated on id,
+message and context. Weaver's lesser advice — `improvement`, `information` —
+is left out: it says what could be better, not what an implementation got
+wrong. One gap reported on each of a
+hundred spans is one entry; how often it was tripped over is not recorded,
+because a coverage file is about what is true of an implementation, not about
+how much traffic a run happened to send.
 
 Diff it to notice an attribute quietly disappearing. `--data-command` replaces
 it when you want a different shape.
@@ -336,8 +351,8 @@ tools/runner/src/opentelemetry/conformance/collect-coverage-model.sh \
 An attribute counts as covered when any sample of that signal carried it,
 whatever its requirement level. A required attribute the implementation
 sometimes omits is a semconv violation, which weaver reports and the run fails
-on — the data file is about what an implementation emits, not about whether it
-is conformant.
+on; the signal sections say what an implementation emits, and the `advices`
+section beside them says what was wrong with it.
 
 ## Wrapping it for your repo
 
@@ -385,6 +400,11 @@ per registry span type, metric and event, which of its declared attributes the
 run carried. It needs one thing the registry can't answer, which is how to
 recognise a span of each type; the rest, including resolving the registry into
 a coverage model, the runner does.
+
+A domain's `config` is a `.weaver.toml` appended to the runner's
+[defaults](src/opentelemetry/conformance/weaver-defaults.toml), which is where
+findings a domain doesn't own are filtered out — an RPC attribute on a GenAI
+span is not a GenAI finding. `--weaver-config` replaces both.
 
 `--data-command` replaces the built-in coverage reduction with a shell command
 run after a complete (unfiltered) run: `"$1"` is the report directory, `"$2"`
