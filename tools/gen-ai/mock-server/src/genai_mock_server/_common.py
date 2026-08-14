@@ -91,13 +91,18 @@ def mock_json_schema_value(schema, name="value", root=None, depth=0):
                 _first_usable(alternatives, root), name, root, depth + 1
             )
     if schema.get("allOf"):
-        merged = {"type": "object", "properties": {}}
+        # An intersection: every branch applies at once, on top of whatever the
+        # schema declares alongside them. Nothing here forces a type.
+        merged = {k: v for k, v in schema.items() if k != "allOf"}
+        properties = dict(merged.get("properties") or {})
         for alternative in schema["allOf"]:
             resolved = _resolve(alternative, root)
-            merged["properties"].update(resolved.get("properties") or {})
+            properties.update(resolved.get("properties") or {})
             for keyword, value in resolved.items():
                 if keyword not in ("properties", "$ref"):
                     merged.setdefault(keyword, value)
+        if properties:
+            merged["properties"] = properties
         schema = merged
 
     if "const" in schema:

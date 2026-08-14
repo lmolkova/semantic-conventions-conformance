@@ -472,6 +472,7 @@ def chat_completions(deployment=None):
         # and CrewAI falls through to the regular create() path.
         resp = copy.deepcopy(CHAT_REFUSAL_RESPONSE)
         resp["model"] = body.get("model", resp["model"])
+        resp["service_tier"] = _served_service_tier(body)
         return resp
 
     if (
@@ -486,6 +487,7 @@ def chat_completions(deployment=None):
         resp = copy.deepcopy(CHAT_RESPONSE)
         resp["model"] = body.get("model", resp["model"])
         resp["choices"][0]["message"]["content"] = "I drafted this plan but it is not in the requested schema."
+        resp["service_tier"] = _served_service_tier(body)
         return resp
 
     # Audio input/output: OpenAI reports per-modality (audio) token counts in usage.

@@ -15,10 +15,8 @@
       "schedule": ["before 8am on Monday"]
     },
     {
-      // One PR per scenario directory. A scenario's dependencies move
-      // together — the library, its instrumentation and the SDK — and a bump
-      // is only meaningful once its data.json has been regenerated, which is
-      // per directory.
+      // Group per directory, or eight scenario directories with seven pinned
+      // dependencies each would open a PR per dependency per directory.
       "groupName": "{{packageFileDir}}",
       "matchFileNames": ["scenarios/**/pyproject.toml"],
       "schedule": ["before 8am on Monday"]

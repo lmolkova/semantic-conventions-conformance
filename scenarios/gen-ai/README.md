@@ -66,13 +66,15 @@ instrumentation, and never imports OpenTelemetry.
 Each class below defines one exchange. Every library makes that same exchange,
 in its own SDK's names, so their `data.json` files compare directly.
 
-Every inference-shaped request carries:
+Every request carries one system instruction and one user turn.
 
-- one system instruction and one user turn;
-- `max_tokens`, `temperature`, `top_p`, `top_k`, `stop_sequences`, `seed`,
-  `frequency_penalty` and `presence_penalty`, wherever the API has that
-  parameter. Anthropic has no seed and OpenAI no top-k, so those requests omit
-  them.
+`inference` and `streaming` additionally carry every sampling option the
+conventions have an attribute for and the API accepts: `max_tokens`,
+`temperature`, `top_p`, `top_k`, `stop_sequences`, `seed`,
+`frequency_penalty` and `presence_penalty`. Anthropic has no seed and OpenAI
+no top-k, so those requests omit them. The other classes carry `max_tokens`
+and `temperature` only, because what they are there to exercise is the
+exchange, and the sampling attributes are already covered.
 
 | Class | Applies to | The exchange | What it is for |
 | --- | --- | --- | --- |
@@ -107,7 +109,7 @@ and the gap lands in `data.json`.
 | `anthropic/opentelemetry-anthropic` | `…-genai-anthropic` | inference, streaming, tool_calling, automatic_tool_calling, multimodal |
 | `anthropic/opentelemetry-langchain-anthropic` | `…-genai-langchain` | the same, through `langchain-anthropic`, minus automatic_tool_calling: langchain binds tools but does not run them outside an agent |
 | `google-genai/opentelemetry-google-genai` | `…-google-genai` | every client class, plus automatic_tool_calling |
-| `botocore/opentelemetry-botocore` | `…-botocore` | Bedrock Converse: inference, streaming, tool_calling |
+| `bedrock/opentelemetry-botocore` | `…-botocore` | Bedrock Converse: inference, streaming, tool_calling |
 | `langchain/opentelemetry-langchain` | `…-genai-langchain` | workflow, invoke_agent, automatic_tool_calling |
 | `openai-agents/opentelemetry-openai-agents` | `…-genai-openai-agents` | invoke_agent, automatic_tool_calling. The Agents SDK wraps every run in a trace, so the workflow span comes with each of those rather than from a scenario of its own |
 
