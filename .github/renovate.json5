@@ -15,10 +15,6 @@
       "schedule": ["before 8am on Monday"]
     },
     {
-      "groupName": "{{packageFileDir}}",
-      "matchFileNames": ["scenarios/**/pyproject.toml"]
-    },
-    {
       // group all GitHub Actions updates into a single weekly PR
       // (Renovate applies packageRules in order and later rules win)
       "groupName": "github actions",
