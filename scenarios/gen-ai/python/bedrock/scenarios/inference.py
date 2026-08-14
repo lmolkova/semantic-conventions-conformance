@@ -3,7 +3,7 @@
 
 """Conformance scenario: a plain Bedrock Converse call.
 
-Shared by every implementation under ``botocore/``, which is what makes their
+Shared by every implementation under ``bedrock/``, which is what makes their
 results comparable. Nothing here turns instrumentation on, and nothing here
 may: naming one would defeat the sharing.
 
