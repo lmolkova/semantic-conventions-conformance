@@ -2,13 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Findings filtered out for GenAI runs, appended to the runner's defaults.
-
+#
+# Only attributes an instrumentation is right to set and that the GenAI
+# registry simply doesn't declare. Anything an implementation should fix stays
+# a finding, deprecated or not: `rpc.system` and `rpc.service` are deprecated,
+# so botocore keeps reporting them until it stops setting them.
+#
 # Bedrock should document its flavour of GenAI spans
 # and by doing this make core seconv attributes visible.
 [[live-check.finding_filters]]
 signal_type = "span"
 exclude_samples = [
   "cloud.region",
-  "http.status_code",
   "rpc.method",
 ]

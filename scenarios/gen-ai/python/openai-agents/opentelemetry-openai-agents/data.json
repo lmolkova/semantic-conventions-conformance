@@ -22,7 +22,7 @@
       "gen_ai.provider.name"
     ]
   },
-  "advices": [
+  "findings": [
     {
       "id": "genai_expected_attribute_missing",
       "message": "Span 'invoke_agent weather_assistant' (operation 'invoke_agent') is missing expected attribute 'gen_ai.response.finish_reasons'",

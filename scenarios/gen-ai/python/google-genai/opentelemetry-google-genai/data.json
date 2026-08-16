@@ -85,7 +85,7 @@
       "server.address"
     ]
   },
-  "advices": [
+  "findings": [
     {
       "id": "type_mismatch",
       "message": "Attribute 'gen_ai.request.top_k' has type 'double'. Type should be 'int'.",

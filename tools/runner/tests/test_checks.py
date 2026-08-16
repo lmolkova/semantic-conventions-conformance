@@ -374,7 +374,7 @@ def test_coverage_reduces_a_run(tmp_path: Path) -> None:
         ],
         "metrics": ["gen_ai.client.operation.duration"],
         "events": ["custom.event"],
-        "advices": [],
+        "findings": [],
     }
 
 
@@ -424,7 +424,7 @@ def test_coverage_records_the_violations_a_run_drew(tmp_path: Path) -> None:
         },
     )
 
-    assert coverage(tmp_path, spec)["advices"] == [
+    assert coverage(tmp_path, spec)["findings"] == [
         {
             "id": "expected_attribute_missing",
             "message": "missing server.address",

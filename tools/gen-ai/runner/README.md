@@ -5,12 +5,13 @@ scenarios and check them; everything specific to these semantic conventions is
 here.
 
 The package is a [`Domain`](../../runner/README.md#wrapping-it-for-your-repo)
-and three files:
+and four files:
 
 | | |
 | --- | --- |
 | [`versions.env`](src/genai_conformance/versions.env) | the pinned registry commit, managed by Renovate. The weaver pin is shared, in the runner |
 | [`policies/`](src/genai_conformance/policies) | advice policies weaver live-check runs on top of the registry's own checks |
+| [`weaver.toml`](src/genai_conformance/weaver.toml) | which findings a GenAI run doesn't own, appended to the runner's weaver defaults |
 | [`_coverage.py`](src/genai_conformance/_coverage.py) | how to recognise a GenAI span type |
 
 ```sh
@@ -52,8 +53,8 @@ What a span type declares comes from the registry — see the runner's
 [coverage model](../../runner/README.md#the-coverage-model).
 Recognising a span is the one thing the registry can't answer — every span type
 carries the whole `gen_ai.operation.name` enum — so which operation names mean
-which span type is stated in `_coverage.py`. That, the pin and the policies are
-the whole of what this package adds.
+which span type is stated in `_coverage.py`. That, the pin, the policies and
+the finding filters are the whole of what this package adds.
 
 The file records only what the registry knows: an attribute it doesn't declare
 doesn't appear, and neither do metrics or events unless the run produced them.

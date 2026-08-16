@@ -48,7 +48,7 @@
       "gen_ai.token.type"
     ]
   },
-  "advices": [
+  "findings": [
     {
       "id": "genai_expected_attribute_missing",
       "message": "Span 'chat claude-sonnet-4-20250514' (operation 'chat') is missing expected attribute 'gen_ai.response.id'",

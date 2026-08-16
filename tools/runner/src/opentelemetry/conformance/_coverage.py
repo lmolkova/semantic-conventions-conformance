@@ -22,7 +22,7 @@ import json
 from pathlib import Path
 
 from ._checks import observed_spans, seen_events, seen_metrics, selects
-from ._report import Advice, advice_list, collect_advice
+from ._report import Finding, finding_list, collect_findings
 from ._spec import PackageSpec, SpanMatch
 
 
@@ -32,7 +32,7 @@ def coverage(report_dir: Path, spec: PackageSpec) -> dict[str, object]:
     attributes: dict[str, set[str]] = {}
     metrics: set[str] = set()
     events: set[str] = set()
-    advices: set[Advice] = set()
+    findings: set[Finding] = set()
 
     def bucket(match: SpanMatch) -> set[str]:
         key = match.key()
@@ -47,7 +47,7 @@ def coverage(report_dir: Path, spec: PackageSpec) -> dict[str, object]:
         statistics = report.get("statistics", {})
         metrics |= seen_metrics(statistics)
         events |= seen_events(statistics)
-        advices |= collect_advice(report)
+        findings |= collect_findings(report)
 
         spans = observed_spans(report)
         selected: set[int] = set()
@@ -78,5 +78,5 @@ def coverage(report_dir: Path, spec: PackageSpec) -> dict[str, object]:
         ],
         "metrics": sorted(metrics),
         "events": sorted(events),
-        "advices": advice_list(advices),
+        "findings": finding_list(findings),
     }

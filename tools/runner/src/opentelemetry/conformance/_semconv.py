@@ -18,7 +18,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Mapping
 
-from ._report import ClassifySpan, Observed, advice_list, read
+from ._report import ClassifySpan, Observed, finding_list, read
 
 if TYPE_CHECKING:
     from ._spec import PackageSpec
@@ -61,7 +61,7 @@ def _reduce(
         "spans": _signals(observed.spans, model.get("spans", {}), bare=False),
         "events": _signals(observed.events, model.get("events", {})),
         "metrics": _signals(observed.metrics, model.get("metrics", {})),
-        "advices": advice_list(observed.advices),
+        "findings": finding_list(observed.findings),
     }
 
 

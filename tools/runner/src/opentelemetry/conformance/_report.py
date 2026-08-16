@@ -35,16 +35,16 @@ _Json = Mapping[str, object]
 Carried = dict[str, "set[str]"]
 
 
-# The advice level a coverage file records.
+# The weaver advice level a coverage file records as a finding.
 _RECORDED_LEVEL = "violation"
 
 
 @dataclass(frozen=True)
-class Advice:
+class Finding:
     """One thing weaver said, independent of how often it said it.
 
-    ``context`` is kept serialised so two advices with the same message about
-    different attributes stay apart, and so an advice is hashable.
+    ``context`` is kept serialised so two findings with the same message about
+    different attributes stay apart, and so a finding is hashable.
     """
 
     id: str
@@ -55,7 +55,7 @@ class Advice:
         return (self.message, self.id, self.context)
 
     def as_dict(self) -> dict[str, object]:
-        """The advice as a coverage file records it.
+        """The finding as a coverage file records it.
 
         ``context`` is left out when weaver reported none, rather than
         committed as a null.
@@ -74,16 +74,16 @@ class Observed:
     spans: Carried = field(default_factory=dict[str, "set[str]"])
     metrics: Carried = field(default_factory=dict[str, "set[str]"])
     events: Carried = field(default_factory=dict[str, "set[str]"])
-    advices: "set[Advice]" = field(default_factory=set["Advice"])
+    findings: "set[Finding]" = field(default_factory=set["Finding"])
 
 
-def collect_advice(document: object) -> set[Advice]:
+def collect_findings(document: object) -> set[Finding]:
     """Every violation anywhere in a report.
 
     Weaver attaches advice to whatever it checked — a span, an attribute, a
     resource — so the report is walked rather than read at known keys.
     """
-    found: set[Advice] = set()
+    found: set[Finding] = set()
     if isinstance(document, dict):
         owner = cast(_Json, document)
         result = _mapping(owner.get("live_check_result"))
@@ -92,7 +92,7 @@ def collect_advice(document: object) -> set[Advice]:
             if advice.get("level") != _RECORDED_LEVEL:
                 continue
             found.add(
-                Advice(
+                Finding(
                     id=str(advice.get("id") or ""),
                     message=str(advice.get("message") or ""),
                     context=json.dumps(
@@ -101,17 +101,18 @@ def collect_advice(document: object) -> set[Advice]:
                 )
             )
         for value in owner.values():
-            found |= collect_advice(value)
+            found |= collect_findings(value)
     elif isinstance(document, list):
         for item in cast("list[object]", document):
-            found |= collect_advice(item)
+            found |= collect_findings(item)
     return found
 
 
-def advice_list(advices: Iterable[Advice]) -> list[dict[str, object]]:
-    """Advice as a coverage file records it, in a stable committed order."""
+def finding_list(findings: Iterable[Finding]) -> list[dict[str, object]]:
+    """Findings as a coverage file records them, in a stable committed order."""
     return [
-        advice.as_dict() for advice in sorted(advices, key=Advice.sort_key)
+        finding.as_dict()
+        for finding in sorted(findings, key=Finding.sort_key)
     ]
 
 
@@ -130,7 +131,7 @@ def read(
             continue
         document = cast(_Json, report)
         _merge_counted(counted, _mapping(document.get("statistics")))
-        observed.advices |= collect_advice(document)
+        observed.findings |= collect_findings(document)
         scenario_spec = spec.scenarios.get(path.stem) if spec else None
         for sample in _list(document.get("samples")):
             _read_sample(observed, sample, classify, scenario_spec)
