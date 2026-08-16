@@ -22,7 +22,7 @@ import json
 from pathlib import Path
 
 from ._checks import observed_spans, seen_events, seen_metrics, selects
-from ._report import Finding, finding_list, collect_findings
+from ._report import Finding, collect_findings, finding_list
 from ._spec import PackageSpec, SpanMatch
 
 
