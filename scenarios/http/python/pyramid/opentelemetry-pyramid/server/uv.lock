@@ -507,7 +507,6 @@ dependencies = [
     { name = "opentelemetry-sdk" },
     { name = "otel-http-test-client" },
     { name = "pyramid" },
-    { name = "setuptools" },
 ]
 
 [package.metadata]
@@ -519,7 +518,6 @@ requires-dist = [
     { name = "opentelemetry-sdk", specifier = "==1.44.0" },
     { name = "otel-http-test-client", editable = "../../../../../../tools/http/test-client/python" },
     { name = "pyramid", specifier = "==2.1" },
-    { name = "setuptools", specifier = "==80.9.0" },
 ]
 
 [[package]]
