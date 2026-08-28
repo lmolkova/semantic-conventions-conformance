@@ -5,7 +5,9 @@ Runs scenario programs, collects what they emit through
 against expectations declared in YAML. It carries no semantic conventions of
 its own — you tell it which registry and policies to validate against.
 
-Not on PyPI yet — install it from a checkout: `pip install -e tools/runner[python]`.
+Not on PyPI yet — install it from a checkout: `pip install -e tools/runner`.
+A Python scenario also wants [`tools/python`](../python), the launcher its
+`run` command names.
 
 A *wrapper* supplies those for one set of conventions;
 [`gen-ai/runner`](../gen-ai/runner) is one. A directory names the wrapper it
@@ -85,11 +87,6 @@ run: uv run --project . opentelemetry-instrument python inference.py
 Installing into whatever environment happened to be active instead — the
 runner's own, say — puts every implementation in one environment, which is
 exactly the case above.
-
-If you'd rather set the SDK up in the program itself, this package also ships
-`otel-conformance-python <script>`, which installs the global providers and
-nothing else — no instrumentation is loaded, so the scenario must turn on its
-own.
 
 A directory can also declare one `setup` command, run once before any
 scenario:
