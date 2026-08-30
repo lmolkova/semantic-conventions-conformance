@@ -122,6 +122,7 @@ classes than the row, the row says so.
 | `litellm` | inference, streaming, tool_calling, structured_output, multimodal, embeddings | `native`, `openinference`, `openllmetry` |
 | `llama-index` | workflow, invoke_agent, automatic_tool_calling | `native`, `openinference`<br>no `openllmetry`:  does not record anything for modern versions |
 | `mistral` | inference, streaming, tool_calling, structured_output, multimodal, embeddings | `native`, `openinference`<br>no `openllmetry`: does not support mistralai 2 |
+| `ollama` | inference, streaming, tool_calling, structured_output, multimodal, embeddings | `openinference`, `openllmetry` |
 | `openai` | inference, streaming, tool_calling, structured_output, multimodal, embeddings | `opentelemetry-openai`, `opentelemetry-langchain-openai`, `openinference`, `openllmetry` |
 | `openai-agents` | invoke_agent, automatic_tool_calling. The Agents SDK wraps every run in a trace, so the workflow span comes with each of those rather than from a scenario of its own | `opentelemetry-openai-agents`, `openinference`, `openllmetry` |
 | `pydantic-ai` | invoke_agent, automatic_tool_calling | `native`<br>no `openinference`: the package is a span processor over the library's own spans, not an instrumentation of it, so it adds no coverage<br>no `openllmetry` for this library |
