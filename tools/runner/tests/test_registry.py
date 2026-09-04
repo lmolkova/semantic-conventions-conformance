@@ -43,6 +43,8 @@ def test_a_git_url_is_read_as_url_ref_and_sub_folder(
         "../model",
         "${ROOT}/model",
         "https://example.com/registry.zip[model]",
+        # A checkout that happens to be named like a URL's tail.
+        "../semantic-conventions-genai.git",
     ],
 )
 def test_anything_that_is_not_a_git_url_stays_a_path(value: str) -> None:
@@ -74,6 +76,20 @@ def test_a_git_url_is_fetched_once_into_the_cache(
         "https://github.com/open-telemetry/semantic-conventions-genai"
         "/archive/67dff024.tar.gz"
     ]
+
+
+def test_a_ref_stays_one_directory_in_the_cache(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("SEMCONV_CACHE", str(tmp_path / "cache"))
+
+    def extract(url: str, target: Path, *, label: str) -> None:
+        del url, label
+        target.mkdir(parents=True)
+
+    monkeypatch.setattr(_registry, "_download_and_extract", extract)
+
+    registry = local_registry(f"{_URL}@release/../../v1.0")
+
+    assert registry.parent == tmp_path / "cache"
 
 
 def test_a_url_that_is_not_on_github_says_so(tmp_path, monkeypatch) -> None:

@@ -33,9 +33,11 @@ _VERSION_TIMEOUT_SECONDS = 10
 _GITHUB = "https://github.com/"
 
 # Weaver's registry-as-git-URL syntax: <url>.git, optionally @<ref>, optionally
-# [<sub folder>]. See the --registry argument of any weaver command.
+# [<sub folder>]. See the --registry argument of any weaver command. The scheme
+# is what tells it apart from a local checkout named `<something>.git`.
 _GIT_REGISTRY = re.compile(
-    r"^(?P<url>[^\s\[\]]+\.git)(?:@(?P<ref>[^\s\[\]]+))?"
+    r"^(?P<url>[a-zA-Z][a-zA-Z0-9+.-]*://[^\s\[\]]+\.git)"
+    r"(?:@(?P<ref>[^\s\[\]]+))?"
     r"(?:\[(?P<sub_folder>[^\]]+)\])?$"
 )
 
@@ -123,7 +125,7 @@ def provision(repo: str, ref: str, *, label: str) -> Path:
     registries at the same ref don't collide. A completed fetch leaves a stamp
     file, which is what makes this a no-op on every later run.
     """
-    target = cache_dir() / f"{label}-{ref}"
+    target = cache_dir() / _safe_name(f"{label}-{ref}")
     stamp = target / ".provisioned"
     if stamp.is_file():
         return target
@@ -132,6 +134,11 @@ def provision(repo: str, ref: str, *, label: str) -> Path:
     _download_and_extract(url, target, label=label)
     stamp.touch()
     return target
+
+
+def _safe_name(value: str) -> str:
+    """``value`` as one path component: a ref can hold slashes and worse."""
+    return re.sub(r"[^A-Za-z0-9._-]", "-", value)
 
 
 def _download_and_extract(url: str, target: Path, *, label: str) -> None:
