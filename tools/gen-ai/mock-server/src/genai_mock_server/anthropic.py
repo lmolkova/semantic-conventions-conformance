@@ -87,9 +87,34 @@ def _has_tool_result(body):
         content = message.get("content")
         if isinstance(content, list):
             for block in content:
-                if isinstance(block, dict) and block.get("type") == "tool_result":
+                if (
+                    isinstance(block, dict)
+                    and block.get("type") == "tool_result"
+                ):
                     return True
     return False
+
+
+def _get_anthropic_tool_info(body):
+    called_names = set()
+    call_ids = []
+    for message in body.get("messages", []):
+        content = message.get("content")
+        if isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict):
+                    if block.get("type") == "tool_use":
+                        call_id = block.get("id")
+                        if call_id:
+                            call_ids.append(call_id)
+                        name = block.get("name")
+                        if name:
+                            called_names.add(name)
+                    elif block.get("type") == "tool_result":
+                        call_id = block.get("tool_use_id")
+                        if call_id:
+                            call_ids.append(call_id)
+    return called_names, call_ids
 
 
 def _sse_event(event_type, data):
@@ -170,20 +195,37 @@ def messages():
 
     context_management = body.get("context_management") or {}
     edits = context_management.get("edits") or []
-    if any(edit.get("type") == "compact_20260112" for edit in edits if isinstance(edit, dict)):
+    if any(
+        edit.get("type") == "compact_20260112"
+        for edit in edits
+        if isinstance(edit, dict)
+    ):
         resp = copy.deepcopy(MESSAGE_COMPACTION_RESPONSE)
         resp["model"] = body.get("model", resp["model"])
         return resp
 
-    if body.get("tools") and not _has_tool_result(body):
-        resp = copy.deepcopy(MESSAGE_TOOL_USE_RESPONSE)
-        resp["model"] = body.get("model", resp["model"])
-        tool = body.get("tools", [{}])[0]
-        tool_name = tool.get("name")
-        if tool_name:
-            resp["content"][0]["name"] = tool_name
-        resp["content"][0]["input"] = mock_tool_arguments(tool)
-        return resp
+    if body.get("tools"):
+        tools = body.get("tools")
+        first_tool = tools[0] if tools else {}
+        tool_name = first_tool.get("name")
+        called_names, call_ids = _get_anthropic_tool_info(body)
+        has_tool_result = _has_tool_result(body)
+        should_call = False
+        if tool_name and tool_name not in called_names:
+            should_call = True
+        elif not has_tool_result:
+            should_call = True
+
+        if should_call:
+            call_idx = len(set(call_ids)) + 1
+            call_id = f"toolu_mock_{call_idx:03d}"
+            resp = copy.deepcopy(MESSAGE_TOOL_USE_RESPONSE)
+            resp["model"] = body.get("model", resp["model"])
+            if tool_name:
+                resp["content"][0]["name"] = tool_name
+            resp["content"][0]["id"] = call_id
+            resp["content"][0]["input"] = mock_tool_arguments(first_tool)
+            return resp
 
     resp = copy.deepcopy(MESSAGE_RESPONSE)
     resp["model"] = body.get("model", resp["model"])
