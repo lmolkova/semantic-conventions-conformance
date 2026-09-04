@@ -26,7 +26,7 @@ from typing import Any, Callable
 from ._model import fingerprint as model_fingerprint
 from ._model import load as load_coverage_model
 from ._model import resolve as resolve_coverage_model
-from ._registry import cache_dir, check_weaver, provision
+from ._registry import cache_dir, check_weaver, local_registry, provision
 from ._report import ClassifySpan
 from ._semconv import BuildData, semconv_coverage
 from ._session import (
@@ -208,7 +208,9 @@ class Domain:
         # a missing binary should be reported here rather than from there.
         check_weaver()
         override = (
-            Path(weaver.registry) if weaver and weaver.registry else None
+            local_registry(weaver.registry)
+            if weaver and weaver.registry
+            else None
         )
         with ExitStack() as stack:
             resolved_build_data, model_path = self._coverage(stack, override)

@@ -36,7 +36,7 @@ from ._env import (
     build_env,
     timeout_seconds,
 )
-from ._registry import check_weaver
+from ._registry import check_weaver, local_registry, parse_git_registry
 from ._server import Server
 from ._spec import (
     PackageSpec,
@@ -218,7 +218,7 @@ class ConformanceSession:
                 inactivity_timeout=int(
                     timeout_seconds(*_WEAVER_INACTIVITY_TIMEOUT)
                 ),
-                registry=self._resolve_path(self._registry),
+                registry=self._registry_path(),
                 policies_dir=self._resolve_path(weaver_spec.policies)
                 if weaver_spec.policies
                 else None,
@@ -259,6 +259,13 @@ class ConformanceSession:
 
     def _resolve(self, value: str) -> str:
         return Template(value).safe_substitute(self._variables)
+
+    def _registry_path(self) -> str:
+        """The registry as a directory, fetching it when it is a git URL."""
+        declared = self._resolve(self._registry)
+        if parse_git_registry(declared) is not None:
+            return str(local_registry(declared))
+        return self._resolve_path(self._registry)
 
     def _resolve_path(self, value: str) -> str:
         """Resolve a declared path, relative ones against the package.
