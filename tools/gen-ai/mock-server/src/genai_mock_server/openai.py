@@ -244,6 +244,19 @@ def _get_offered_tool(body):
     return tool, name
 
 
+def _current_turn(messages):
+    """Messages since the last user message.
+
+    A tool called in an earlier turn must not stop the model from calling it
+    again when the user asks a new question.
+    """
+    last_user = -1
+    for index, message in enumerate(messages):
+        if message.get("role") == "user":
+            last_user = index
+    return messages[last_user + 1 :]
+
+
 def _get_called_tool_info(messages):
     called_names = set()
     call_ids = []
@@ -416,32 +429,29 @@ def _text_protocol_tool_call(body, message_text):
 
 
 def _should_call_tool(body):
+    """Whether this request should be answered with a call to its first tool.
+
+    Offered tools and, in the current turn, no result yet for that tool. The
+    streaming and non-streaming paths share the rule so a framework sees the
+    same exchange either way.
+    """
     if not body.get("tools"):
         return False
-    messages = body.get("messages", [])
     tool, tool_name = _get_offered_tool(body)
     if not tool or not tool_name:
         return False
-    called_names, call_ids = _get_called_tool_info(messages)
-    has_tool_result = any(m.get("role") == "tool" for m in messages)
+    turn = _current_turn(body.get("messages", []))
+    called_names, _ = _get_called_tool_info(turn)
+    has_tool_result = any(m.get("role") == "tool" for m in turn)
 
     if not has_tool_result:
         return True
 
+    # A result with no call to attribute it to: answer rather than loop.
     if called_names:
         return tool_name not in called_names
 
     return False
-
-
-def _wants_tool_call(body):
-    """Whether this request should be answered with a call to its first tool.
-
-    Offered tools and no tool result yet for this tool, which is the same rule the
-    non-streaming path follows so a framework sees the same exchange either
-    way.
-    """
-    return _should_call_tool(body)
 
 
 def _stream_tool_call(body, model, chunk_id):
@@ -527,7 +537,7 @@ def _stream_chat(body):
         }
     )
 
-    if _wants_tool_call(body):
+    if _should_call_tool(body):
         yield from _stream_tool_call(body, model, chunk_id)
         return
 

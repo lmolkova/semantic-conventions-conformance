@@ -424,6 +424,162 @@ def test_anthropic_multi_turn_tool_call_generates_unique_ids(client):
     assert r3.json["stop_reason"] == "end_turn"
 
 
+def test_chat_calls_the_same_tool_again_in_a_later_turn(client):
+    """A completed call does not exhaust the tool: a new user turn calls it again."""
+    response = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "user", "content": "weather in Seattle?"},
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "id": "call_mock_001",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": "{}",
+                            },
+                        }
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "tool_call_id": "call_mock_001",
+                    "content": "70 degrees",
+                },
+                {"role": "assistant", "content": "It is 70 degrees."},
+                {"role": "user", "content": "and in Portland?"},
+            ],
+            "tools": [
+                {"type": "function", "function": {"name": "get_weather"}}
+            ],
+        },
+    )
+    call = response.json["choices"][0]["message"]["tool_calls"][0]
+    assert call["function"]["name"] == "get_weather"
+    assert call["id"] == "call_mock_002"
+
+
+def test_anthropic_calls_the_same_tool_again_in_a_later_turn(client):
+    response = client.post(
+        "/v1/messages",
+        json={
+            "model": "claude-sonnet-4-20250514",
+            "messages": [
+                {"role": "user", "content": "weather in Seattle?"},
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "toolu_mock_001",
+                            "name": "get_weather",
+                            "input": {},
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "toolu_mock_001",
+                            "content": "70 degrees",
+                        }
+                    ],
+                },
+                {"role": "assistant", "content": "It is 70 degrees."},
+                {"role": "user", "content": "and in Portland?"},
+            ],
+            "tools": [
+                {"name": "get_weather", "input_schema": {"type": "object"}}
+            ],
+        },
+    )
+    block = response.json["content"][0]
+    assert block["type"] == "tool_use"
+    assert block["name"] == "get_weather"
+    assert block["id"] == "toolu_mock_002"
+
+
+def test_anthropic_answers_when_a_tool_result_has_no_matching_call(client):
+    """A result the mock cannot attribute to a call ends the exchange, as on the OpenAI side."""
+    response = client.post(
+        "/v1/messages",
+        json={
+            "model": "claude-sonnet-4-20250514",
+            "messages": [
+                {"role": "user", "content": "weather in Seattle?"},
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "toolu_x",
+                            "content": "70 degrees",
+                        }
+                    ],
+                },
+            ],
+            "tools": [
+                {"name": "get_weather", "input_schema": {"type": "object"}}
+            ],
+        },
+    )
+    assert response.json["content"][0]["type"] == "text"
+    assert response.json["stop_reason"] == "end_turn"
+
+
+def test_streaming_chat_numbers_tool_calls_across_turns(client):
+    """The streamed path mints the same sequential ids the non-streamed one does."""
+    response = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "user", "content": "weather in Seattle?"},
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "id": "call_mock_001",
+                            "type": "function",
+                            "function": {
+                                "name": "transfer_to_specialist",
+                                "arguments": "{}",
+                            },
+                        }
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "tool_call_id": "call_mock_001",
+                    "content": "transferred",
+                },
+            ],
+            "tools": [
+                {"type": "function", "function": {"name": "get_weather"}}
+            ],
+            "stream": True,
+        },
+    )
+    deltas = [
+        json.loads(line[len("data: ") :])
+        for line in response.get_data(as_text=True).splitlines()
+        if line.startswith("data: ") and line != "data: [DONE]"
+    ]
+    calls = [
+        call
+        for delta in deltas
+        for call in delta["choices"][0]["delta"].get("tool_calls", [])
+    ]
+    assert calls[0]["id"] == "call_mock_002"
+    assert calls[0]["function"]["name"] == "get_weather"
+
+
 def test_chat_returns_a_tool_call_when_tools_are_offered(client):
     response = client.post(
         "/v1/chat/completions",
@@ -546,6 +702,15 @@ def test_bedrock_invoke_headers(client):
     )
 
 
+def test_bedrock_invoke_embeddings_report_input_tokens(client):
+    response = client.post(
+        "/model/amazon.titan-embed-text-v1/invoke",
+        json={"inputText": "hi"},
+    )
+    assert response.headers["x-amzn-bedrock-input-token-count"] == "8"
+    assert response.json["inputTextTokenCount"] == 8
+
+
 def test_bedrock_invoke_stream_returns_eventstream(client):
     response = client.post(
         "/model/amazon.titan-text-express-v1/invoke-with-response-stream",
@@ -574,7 +739,11 @@ def test_bedrock_invoke_stream_returns_eventstream(client):
 
     assert len(chunks) == 2
     assert chunks[0]["outputText"] == "This is "
+    # Titan only fills the running token count on the last chunk.
+    assert chunks[0]["totalOutputTextTokenCount"] is None
+    assert chunks[0]["completionReason"] is None
     assert chunks[1]["outputText"] == "a test"
+    assert chunks[1]["totalOutputTextTokenCount"] == 10
     assert chunks[1]["completionReason"] == "FINISH"
     metrics = chunks[1]["amazon-bedrock-invocationMetrics"]
     assert metrics["inputTokenCount"] == 5

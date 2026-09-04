@@ -151,6 +151,7 @@ def bedrock_invoke(model_id):
             "inputTextTokenCount": 8,
         }
         headers = {
+            "x-amzn-bedrock-input-token-count": "8",
             "x-amzn-bedrock-content-type": "application/json",
         }
         return Response(
@@ -179,13 +180,22 @@ def bedrock_invoke(model_id):
 
 def _stream_invoke():
     """Yield Bedrock InvokeModelWithResponseStream event-stream chunks in binary format."""
+    # Titan streams `totalOutputTextTokenCount`, not the `tokenCount` its
+    # non-streaming response carries, and only fills it on the final chunk.
     chunks = [
-        {"inputTextTokenCount": 5, "outputText": "This is ", "tokenCount": 5},
         {
+            "outputText": "This is ",
+            "index": 0,
+            "totalOutputTextTokenCount": None,
+            "completionReason": None,
             "inputTextTokenCount": 5,
+        },
+        {
             "outputText": "a test",
-            "tokenCount": 5,
+            "index": 0,
+            "totalOutputTextTokenCount": 10,
             "completionReason": "FINISH",
+            "inputTextTokenCount": 5,
             "amazon-bedrock-invocationMetrics": {
                 "inputTokenCount": 5,
                 "outputTokenCount": 10,
