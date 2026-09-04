@@ -8,8 +8,10 @@ cassette replay — so each case asserts the shape a scenario reads, not just a
 200.
 """
 
+import base64
 import json
 import re
+import struct
 
 import pytest
 
@@ -123,6 +125,12 @@ ENDPOINTS = [
         "bedrock-invoke-embeddings",
         "post",
         "/model/amazon.titan-embed-text-v1/invoke",
+        {"inputText": "hi"},
+    ),
+    (
+        "bedrock-invoke-stream",
+        "post",
+        "/model/amazon.titan-text-express-v1/invoke-with-response-stream",
         {"inputText": "hi"},
     ),
     (
@@ -528,6 +536,14 @@ def test_bedrock_invoke_headers(client):
     assert response.status_code == 200
     assert response.headers["x-amzn-bedrock-input-token-count"] == "5"
     assert response.headers["x-amzn-bedrock-output-token-count"] == "10"
+    assert (
+        response.headers["x-amzn-bedrock-content-type"] == "application/json"
+    )
+    assert response.json["inputTextTokenCount"] == 5
+    assert (
+        response.json["results"][0]["outputText"]
+        == "This is a response from the mock server."
+    )
 
 
 def test_bedrock_invoke_stream_returns_eventstream(client):
@@ -537,7 +553,32 @@ def test_bedrock_invoke_stream_returns_eventstream(client):
     )
     assert response.status_code == 200
     assert response.mimetype == "application/vnd.amazon.eventstream"
-    assert len(response.data) > 0
+    assert (
+        response.headers["x-amzn-bedrock-content-type"] == "application/json"
+    )
+
+    data = response.data
+    chunks = []
+    offset = 0
+    while offset < len(data):
+        total_length, headers_length = struct.unpack_from("!II", data, offset)
+        payload = data[
+            offset + 12 + headers_length : offset + total_length - 4
+        ]
+        frame = json.loads(payload.decode("utf-8"))
+        chunk_json = json.loads(
+            base64.b64decode(frame["bytes"]).decode("utf-8")
+        )
+        chunks.append(chunk_json)
+        offset += total_length
+
+    assert len(chunks) == 2
+    assert chunks[0]["outputText"] == "This is "
+    assert chunks[1]["outputText"] == "a test"
+    assert chunks[1]["completionReason"] == "FINISH"
+    metrics = chunks[1]["amazon-bedrock-invocationMetrics"]
+    assert metrics["inputTokenCount"] == 5
+    assert metrics["outputTokenCount"] == 10
 
 
 def test_embeddings_treat_token_ids_as_one_input(client):
