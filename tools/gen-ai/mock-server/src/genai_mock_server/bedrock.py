@@ -1,7 +1,9 @@
 """AWS Bedrock-compatible endpoints."""
 
+import base64
 import copy
 import json
+import time
 
 from flask import Blueprint, Response, request
 
@@ -130,9 +132,60 @@ def bedrock_converse_stream(model_id):
 
 @bp.route("/model/<path:model_id>/invoke", methods=["POST"])
 def bedrock_invoke(model_id):
-    """Handle Bedrock InvokeModel — used for Titan Embeddings."""
+    """Handle Bedrock InvokeModel."""
+    if "embed" in model_id:
+        resp = {
+            "embedding": [0.001] * 256,
+            "inputTextTokenCount": 8,
+        }
+        return Response(json.dumps(resp), mimetype="application/json")
+
     resp = {
-        "embedding": [0.001] * 256,
-        "inputTextTokenCount": 8,
+        "inputTextTokenCount": 5,
+        "results": [
+            {
+                "tokenCount": 10,
+                "outputText": "This is a response from the mock server.",
+                "completionReason": "FINISH",
+            }
+        ],
     }
-    return Response(json.dumps(resp), mimetype="application/json")
+    headers = {
+        "x-amzn-bedrock-input-token-count": "5",
+        "x-amzn-bedrock-output-token-count": "10",
+    }
+    return Response(json.dumps(resp), mimetype="application/json", headers=headers)
+
+
+def _stream_invoke():
+    """Yield Bedrock InvokeModelWithResponseStream event-stream chunks in binary format."""
+    chunks = [
+        {"inputTextTokenCount": 5, "outputText": "This is ", "tokenCount": 5},
+        {
+            "inputTextTokenCount": 5,
+            "outputText": "a test",
+            "tokenCount": 5,
+            "completionReason": "FINISH",
+            "amazon-bedrock-invocationMetrics": {
+                "inputTokenCount": 5,
+                "outputTokenCount": 10,
+                "firstByteLatency": 100,
+                "invocationLatency": 200,
+            },
+        },
+    ]
+    for chunk in chunks:
+        raw_bytes = json.dumps(chunk).encode("utf-8")
+        payload = json.dumps(
+            {"bytes": base64.b64encode(raw_bytes).decode("ascii")}
+        ).encode("utf-8")
+        yield encode_aws_event_stream_message("chunk", payload)
+        time.sleep(0.05)
+
+
+@bp.route("/model/<path:model_id>/invoke-with-response-stream", methods=["POST"])
+def bedrock_invoke_stream(model_id):
+    """Handle Bedrock InvokeModelWithResponseStream."""
+    return Response(
+        _stream_invoke(), mimetype="application/vnd.amazon.eventstream"
+    )

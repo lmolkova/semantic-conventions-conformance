@@ -111,6 +111,18 @@ ENDPOINTS = [
         {"messages": [{"role": "user", "content": [{"text": "hi"}]}]},
     ),
     (
+        "bedrock-invoke",
+        "post",
+        "/model/amazon.titan-text-express-v1/invoke",
+        {"inputText": "hi"},
+    ),
+    (
+        "bedrock-invoke-embeddings",
+        "post",
+        "/model/amazon.titan-embed-text-v1/invoke",
+        {"inputText": "hi"},
+    ),
+    (
         "cohere",
         "post",
         "/v2/chat",
@@ -323,6 +335,26 @@ def test_bedrock_converse_answers_when_no_tool_is_offered(client):
         },
     )
     assert response.json["stopReason"] == "end_turn"
+
+
+def test_bedrock_invoke_headers(client):
+    response = client.post(
+        "/model/amazon.titan-text-express-v1/invoke",
+        json={"inputText": "hi"},
+    )
+    assert response.status_code == 200
+    assert response.headers["x-amzn-bedrock-input-token-count"] == "5"
+    assert response.headers["x-amzn-bedrock-output-token-count"] == "10"
+
+
+def test_bedrock_invoke_stream_returns_eventstream(client):
+    response = client.post(
+        "/model/amazon.titan-text-express-v1/invoke-with-response-stream",
+        json={"inputText": "hi"},
+    )
+    assert response.status_code == 200
+    assert response.mimetype == "application/vnd.amazon.eventstream"
+    assert len(response.data) > 0
 
 
 def test_embeddings_treat_token_ids_as_one_input(client):
