@@ -11,10 +11,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from textwrap import indent
 
 import pytest
 
 from opentelemetry.conformance import (
+    InstrumentationScopeExpectation,
     ServerSpec,
     SpanMatch,
     SpecError,
@@ -44,12 +46,88 @@ def test_minimal_spec_leaves_every_expectation_unchecked(
 
     assert spec.instrumented_library == "demo"
     assert spec.instrumentation_library == "demo-instrumentation"
+    assert spec.instrumentation_scope is None
     scenario = spec.scenarios["inference"]
     assert scenario.run == ("python", "inference.py")
     assert scenario.spans is None
     assert scenario.metrics is None
     assert scenario.events is None
     assert scenario.expected_violations == ()
+
+
+def test_instrumentation_scope_is_inherited_by_every_scenario(
+    tmp_path: Path,
+) -> None:
+    spec = load_spec(
+        write(
+            tmp_path,
+            MINIMAL
+            + """
+expect:
+  instrumentation_scope:
+    name: demo.instrumentation
+    version:
+      present: true
+    schema_url: https://example.test/schemas/1.0.0
+""",
+        )
+    )
+
+    scope = spec.instrumentation_scope
+    assert isinstance(scope, InstrumentationScopeExpectation)
+    assert scope.name == "demo.instrumentation"
+    assert scope.version is not None
+    assert scope.version.present is True
+    assert scope.schema_url is not None
+    assert scope.schema_url.equals == "https://example.test/schemas/1.0.0"
+    assert spec.scenarios["inference"].instrumentation_scope == scope
+
+
+@pytest.mark.parametrize(
+    ("scope", "message"),
+    [
+        ("{}", "declare at least one field"),
+        ("name: demo\nunknown: value", "unknown key"),
+        ("name: demo\nversion: ''", "non-empty string"),
+        ("name: demo\nversion: {distinct: 2}", "unknown key"),
+        (
+            "name: demo\nschema_url: {present: 1}",
+            "present must be a boolean",
+        ),
+    ],
+)
+def test_instrumentation_scope_is_strict(
+    tmp_path: Path, scope: str, message: str
+) -> None:
+    with pytest.raises(SpecError, match=message):
+        load_spec(
+            write(
+                tmp_path,
+                MINIMAL
+                + "\nexpect:\n  instrumentation_scope:\n"
+                + indent(scope, "    ")
+                + "\n",
+            )
+        )
+
+
+def test_instrumentation_scope_name_is_optional(tmp_path: Path) -> None:
+    spec = load_spec(
+        write(
+            tmp_path,
+            MINIMAL
+            + """
+expect:
+  instrumentation_scope:
+    schema_url:
+      present: true
+""",
+        )
+    )
+
+    scope = spec.instrumentation_scope
+    assert scope is not None
+    assert scope.name is None
 
 
 def test_runner_config_is_available_to_the_selected_runner(

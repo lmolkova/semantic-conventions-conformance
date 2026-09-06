@@ -42,6 +42,15 @@ class AttributeMatcher:
 
 
 @dataclass(frozen=True)
+class InstrumentationScopeExpectation:
+    """Package-wide expectations for signal instrumentation scopes."""
+
+    name: str | None = None
+    version: AttributeMatcher | None = None
+    schema_url: AttributeMatcher | None = None
+
+
+@dataclass(frozen=True)
 class SpanMatch:
     """What selects a span — every declared facet has to hold.
 
@@ -161,6 +170,7 @@ class ScenarioSpec:
     metrics: tuple[str, ...] | None
     events: tuple[str, ...] | None
     expected_violations: tuple[ExpectedViolation, ...]
+    instrumentation_scope: InstrumentationScopeExpectation | None = None
     inherited_violations: tuple[ExpectedViolation, ...] = ()
     description: str = ""
     index: int | None = None
@@ -249,6 +259,7 @@ class PackageSpec:
     server: ServerSpec
     setup: tuple[str, ...] | None
     scenarios: Mapping[str, ScenarioSpec]
+    instrumentation_scope: InstrumentationScopeExpectation | None = None
     # Also merged into every scenario as ``inherited_violations``.
     expected_violations: tuple[ExpectedViolation, ...] = ()
     # Which wrapper supplies the registry and the reduction (see
@@ -335,6 +346,41 @@ def _parse_matcher(value: object, where: str) -> AttributeMatcher:
     if not isinstance(distinct, int) or isinstance(distinct, bool):
         raise SpecError(f"{where}: distinct must be an integer")
     return AttributeMatcher(distinct=distinct)
+
+
+def _parse_scope_field(value: object, where: str) -> AttributeMatcher:
+    if isinstance(value, str) and value:
+        return AttributeMatcher(equals=value)
+    if not isinstance(value, Mapping):
+        raise SpecError(
+            f"{where}: expected a non-empty string or a presence matcher"
+        )
+
+    matcher = cast("Mapping[str, object]", value)
+    _check_keys(matcher, ("present",), where)
+    if set(matcher) != {"present"} or not isinstance(matcher["present"], bool):
+        raise SpecError(f"{where}: present must be a boolean")
+    return AttributeMatcher(present=matcher["present"])
+
+
+def _parse_instrumentation_scope(
+    value: object, where: str
+) -> InstrumentationScopeExpectation:
+    scope = _require_mapping(value, where)
+    _check_keys(scope, ("name", "version", "schema_url"), where)
+    if not scope:
+        raise SpecError(f"{where}: declare at least one field to check")
+    return InstrumentationScopeExpectation(
+        name=_optional_string(scope, "name", where),
+        version=_parse_scope_field(scope["version"], f"{where}.version")
+        if "version" in scope
+        else None,
+        schema_url=_parse_scope_field(
+            scope["schema_url"], f"{where}.schema_url"
+        )
+        if "schema_url" in scope
+        else None,
+    )
 
 
 def _parse_match(value: object, where: str) -> SpanMatch:
@@ -452,6 +498,7 @@ def _parse_scenario(
     where: str,
     *,
     inherited: tuple[ExpectedViolation, ...] = (),
+    instrumentation_scope: InstrumentationScopeExpectation | None = None,
     description: str | None = None,
     index: int | None = None,
 ) -> ScenarioSpec:
@@ -503,6 +550,7 @@ def _parse_scenario(
         if "events" in scenario
         else None,
         expected_violations=own,
+        instrumentation_scope=instrumentation_scope,
         inherited_violations=inherited,
         description=description or name,
         index=index,
@@ -551,6 +599,7 @@ def _list_contract_scenarios(
     run: tuple[str, ...],
     directory: Path,
     inherited: tuple[ExpectedViolation, ...],
+    instrumentation_scope: InstrumentationScopeExpectation | None,
 ) -> Mapping[str, ScenarioSpec]:
     contract = _require_mapping(document or {}, str(path))
     entries = _require_list(contract.get("scenarios"), f"{path}.scenarios")
@@ -577,6 +626,7 @@ def _list_contract_scenarios(
             directory,
             where,
             inherited=inherited,
+            instrumentation_scope=instrumentation_scope,
             description=description,
             index=index,
         )
@@ -615,6 +665,7 @@ def load_spec(directory: Path) -> PackageSpec:
             "scenario_run",
             "instrumented_library",
             "instrumentation_library",
+            "expect",
             "env",
             "weaver",
             "server",
@@ -630,6 +681,20 @@ def load_spec(directory: Path) -> PackageSpec:
     )
     instrumentation = _required_string(
         document, "instrumentation_library", str(path)
+    )
+    package_expectations = _require_mapping(
+        document.get("expect") or {}, f"{path}.expect"
+    )
+    _check_keys(
+        package_expectations, ("instrumentation_scope",), f"{path}.expect"
+    )
+    instrumentation_scope = (
+        _parse_instrumentation_scope(
+            package_expectations["instrumentation_scope"],
+            f"{path}.expect.instrumentation_scope",
+        )
+        if "instrumentation_scope" in package_expectations
+        else None
     )
 
     local_scenarios = _require_mapping(
@@ -678,6 +743,7 @@ def load_spec(directory: Path) -> PackageSpec:
             _parse_command(document["scenario_run"], f"{path}.scenario_run"),
             directory,
             inherited,
+            instrumentation_scope,
         )
     else:
         if "scenario_run" in document:
@@ -701,6 +767,7 @@ def load_spec(directory: Path) -> PackageSpec:
                 directory,
                 f"{path}.scenarios.{name}",
                 inherited=inherited,
+                instrumentation_scope=instrumentation_scope,
             )
             for name, scenario in declared.items()
         }
@@ -708,6 +775,7 @@ def load_spec(directory: Path) -> PackageSpec:
     return PackageSpec(
         instrumented_library=instrumented,
         instrumentation_library=instrumentation,
+        instrumentation_scope=instrumentation_scope,
         directory=directory,
         runner=_optional_string(document, "runner", str(path)),
         runner_config=dict(

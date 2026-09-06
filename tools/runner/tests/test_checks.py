@@ -84,7 +84,6 @@ CHAT = SpanExpectation(
     attributes={},
 )
 
-
 def test_no_expectations_passes_on_anything() -> None:
     report = Report(
         samples=[span_sample(**{"gen_ai.operation.name": "chat"})],
@@ -487,8 +486,9 @@ def test_a_violation_without_context_accepts_every_finding_with_that_id() -> (
     assert check(spec, report) == []
 
 
-def test_a_violation_without_context_still_fails_once_the_class_empties(
-) -> None:
+def test_a_violation_without_context_still_fails_once_the_class_empties() -> (
+    None
+):
     """Bulk or not, a suppression mustn't outlive the gap that caused it."""
     declared = ExpectedViolation(
         id="missing_attribute", context=None, reason="known"
@@ -509,7 +509,10 @@ def test_a_violation_without_context_does_not_accept_other_ids() -> None:
     report = Report(
         violations=[
             {"id": "missing_attribute", "context": {"attribute_key": "llm.a"}},
-            {"id": "genai_span_kind_unexpected", "context": {"kind": "internal"}},
+            {
+                "id": "genai_span_kind_unexpected",
+                "context": {"kind": "internal"},
+            },
         ]
     )
 
@@ -659,7 +662,9 @@ def test_mapping_only_expectation_does_not_enforce_exact_validation() -> None:
     report = Report(
         samples=[
             span_sample(**{"gen_ai.operation.name": "chat"}),
-            span_sample(name="other_span", **{"custom.attr": "value"}),  # undeclared span
+            span_sample(
+                name="other_span", **{"custom.attr": "value"}
+            ),  # undeclared span
         ]
     )
 

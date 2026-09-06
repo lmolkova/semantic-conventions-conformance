@@ -22,6 +22,8 @@ from types import SimpleNamespace
 import pytest
 
 from opentelemetry.conformance import (
+    AttributeMatcher,
+    InstrumentationScopeExpectation,
     SpecError,
     WeaverSpec,
     _session,
@@ -135,6 +137,32 @@ def test_the_scenario_gets_exactly_the_environment_it_was_given(
 
     assert completed.returncode == 0
     assert completed.stdout.strip() == "value"
+
+
+def test_scope_expectation_is_rendered_beside_declared_policies(
+    directory: Path, tmp_path: Path
+) -> None:
+    policies = directory / "policies"
+    policies.mkdir()
+    (policies / "declared.rego").write_text("package live_check_advice\n")
+    opened = session(directory, tmp_path / "data.json")
+    scenario = replace(
+        opened.spec.scenarios["inference"],
+        instrumentation_scope=InstrumentationScopeExpectation(
+            schema_url=AttributeMatcher(present=True)
+        ),
+    )
+
+    with opened._scenario_policies(
+        scenario, WeaverSpec(policies="policies")
+    ) as rendered:
+        assert rendered is not None
+        rendered_path = Path(rendered)
+        assert (rendered_path / "declared.rego").is_file()
+        scope_policy = (
+            rendered_path / "instrumentation_scope_validation.rego"
+        ).read_text()
+        assert '"schema_url": {"present": true}' in scope_policy
 
 
 @pytest.fixture
