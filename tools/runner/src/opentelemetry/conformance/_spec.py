@@ -43,9 +43,9 @@ class AttributeMatcher:
 
 @dataclass(frozen=True)
 class InstrumentationScopeExpectation:
-    """Package-wide expectations for signal instrumentation scopes."""
+    """Expectations for a signal's instrumentation scope."""
 
-    name: str | None = None
+    name: AttributeMatcher | None = None
     version: AttributeMatcher | None = None
     schema_url: AttributeMatcher | None = None
 
@@ -115,6 +115,7 @@ class SpanExpectation:
     attributes: Mapping[str, AttributeMatcher] = field(
         default_factory=dict[str, AttributeMatcher]
     )
+    instrumentation_scope: InstrumentationScopeExpectation | None = None
 
     def describe(self) -> str:
         return self.match.describe()
@@ -364,14 +365,16 @@ def _parse_scope_field(value: object, where: str) -> AttributeMatcher:
 
 
 def _parse_instrumentation_scope(
-    value: object, where: str
+    value: object, where: str, *, allow_exact: bool
 ) -> InstrumentationScopeExpectation:
     scope = _require_mapping(value, where)
     _check_keys(scope, ("name", "version", "schema_url"), where)
     if not scope:
         raise SpecError(f"{where}: declare at least one field to check")
-    return InstrumentationScopeExpectation(
-        name=_optional_string(scope, "name", where),
+    expectation = InstrumentationScopeExpectation(
+        name=_parse_scope_field(scope["name"], f"{where}.name")
+        if "name" in scope
+        else None,
         version=_parse_scope_field(scope["version"], f"{where}.version")
         if "version" in scope
         else None,
@@ -381,6 +384,19 @@ def _parse_instrumentation_scope(
         if "schema_url" in scope
         else None,
     )
+    if not allow_exact and any(
+        matcher is not None and matcher.equals is not None
+        for matcher in (
+            expectation.name,
+            expectation.version,
+            expectation.schema_url,
+        )
+    ):
+        raise SpecError(
+            f"{where}: package-wide scope fields only support presence "
+            "matchers; put exact values under a matched signal"
+        )
+    return expectation
 
 
 def _parse_match(value: object, where: str) -> SpanMatch:
@@ -409,7 +425,11 @@ def _parse_span(value: object, where: str) -> SpanExpectation:
         return SpanExpectation(match=match)
 
     expect = _require_mapping(span["expect"], f"{where}.expect")
-    _check_keys(expect, ("count", "attributes"), f"{where}.expect")
+    _check_keys(
+        expect,
+        ("count", "attributes", "instrumentation_scope"),
+        f"{where}.expect",
+    )
     count = expect.get("count")
     if not isinstance(count, int) or isinstance(count, bool):
         raise SpecError(
@@ -425,6 +445,13 @@ def _parse_span(value: object, where: str) -> SpanExpectation:
             name: _parse_matcher(matcher, f"{where}.expect.attributes.{name}")
             for name, matcher in attributes.items()
         },
+        instrumentation_scope=_parse_instrumentation_scope(
+            expect["instrumentation_scope"],
+            f"{where}.expect.instrumentation_scope",
+            allow_exact=True,
+        )
+        if "instrumentation_scope" in expect
+        else None,
     )
 
 
@@ -682,8 +709,10 @@ def load_spec(directory: Path) -> PackageSpec:
     instrumentation = _required_string(
         document, "instrumentation_library", str(path)
     )
+    declared_expectations = document.get("expect")
     package_expectations = _require_mapping(
-        document.get("expect") or {}, f"{path}.expect"
+        {} if declared_expectations is None else declared_expectations,
+        f"{path}.expect",
     )
     _check_keys(
         package_expectations, ("instrumentation_scope",), f"{path}.expect"
@@ -692,6 +721,7 @@ def load_spec(directory: Path) -> PackageSpec:
         _parse_instrumentation_scope(
             package_expectations["instrumentation_scope"],
             f"{path}.expect.instrumentation_scope",
+            allow_exact=False,
         )
         if "instrumentation_scope" in package_expectations
         else None

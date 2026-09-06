@@ -246,24 +246,43 @@ scenarios:
 
 ### Instrumentation scope
 
-A package can check every instrumentation scope observed in each scenario:
+A package can apply presence checks to every instrumentation scope observed in
+each scenario:
 
 ```yaml
 expect:
   instrumentation_scope:
-    name: opentelemetry.instrumentation.genai.openai
     version:
       present: true
-    schema_url: https://opentelemetry.io/schemas/1.37.0
+    schema_url:
+      present: true
+```
+
+Exact checks belong to a matched signal because one package can emit telemetry
+from several scopes:
+
+```yaml
+spans:
+  - match:
+      attributes:
+        gen_ai.operation.name: chat
+    expect:
+      count: 1
+      instrumentation_scope:
+        name: opentelemetry.instrumentation.genai.openai
+        version: {present: true}
+        schema_url: https://opentelemetry.io/schemas/1.37.0
 ```
 
 A string value is matched exactly. `{present: true}` or `{present: false}`
-checks whether `version` or `schema_url` is set without fixing its value.
-Leaving out a field leaves it unchecked, including `name`.
+checks whether `name`, `version`, or `schema_url` is set without fixing its
+value. Leaving out a field leaves it unchecked. Package-wide exact values are
+rejected.
 
-The runner renders this expectation into a Rego advice policy for the
-scenario. Mismatches are therefore stored as findings in both the raw Weaver
-report and the generated coverage data.
+The runner renders these expectations into a Rego advice policy for the
+scenario. For matched signals, the policy checks `input.instrumentation_scope`
+alongside `input.sample`. Mismatches are therefore stored on the signal as
+findings in both the raw Weaver report and the generated coverage data.
 
 Top-level `expect` holds package-wide expectations inherited by every
 scenario. The scope name is related to `instrumentation_library`, which

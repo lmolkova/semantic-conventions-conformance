@@ -65,28 +65,63 @@ def test_instrumentation_scope_is_inherited_by_every_scenario(
             + """
 expect:
   instrumentation_scope:
-    name: demo.instrumentation
     version:
       present: true
-    schema_url: https://example.test/schemas/1.0.0
+    schema_url:
+      present: true
 """,
         )
     )
 
     scope = spec.instrumentation_scope
     assert isinstance(scope, InstrumentationScopeExpectation)
-    assert scope.name == "demo.instrumentation"
     assert scope.version is not None
     assert scope.version.present is True
     assert scope.schema_url is not None
-    assert scope.schema_url.equals == "https://example.test/schemas/1.0.0"
+    assert scope.schema_url.present is True
     assert spec.scenarios["inference"].instrumentation_scope == scope
+
+
+def test_instrumentation_scope_exact_match_is_scoped_to_signal(
+    tmp_path: Path,
+) -> None:
+    spec = load_spec(
+        write(
+            tmp_path,
+            """
+instrumented_library: demo
+instrumentation_library: demo-instrumentation
+scenarios:
+  inference:
+    run: python inference.py
+    spans:
+      - match:
+          attributes: {operation: chat}
+        expect:
+          count: 1
+          instrumentation_scope:
+            name: demo.instrumentation
+            version: 1.2.3
+            schema_url: {present: true}
+""",
+        )
+    )
+
+    scope = spec.scenarios["inference"].spans[0].instrumentation_scope
+    assert scope is not None
+    assert scope.name is not None
+    assert scope.name.equals == "demo.instrumentation"
+    assert scope.version is not None
+    assert scope.version.equals == "1.2.3"
+    assert scope.schema_url is not None
+    assert scope.schema_url.present is True
 
 
 @pytest.mark.parametrize(
     ("scope", "message"),
     [
         ("{}", "declare at least one field"),
+        ("name: null", "non-empty string or a presence matcher"),
         ("name: demo\nunknown: value", "unknown key"),
         ("name: demo\nversion: ''", "non-empty string"),
         ("name: demo\nversion: {distinct: 2}", "unknown key"),
@@ -128,6 +163,31 @@ expect:
     scope = spec.instrumentation_scope
     assert scope is not None
     assert scope.name is None
+
+
+def test_global_instrumentation_scope_rejects_exact_values(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(SpecError, match="matched signal"):
+        load_spec(
+            write(
+                tmp_path,
+                MINIMAL
+                + """
+expect:
+  instrumentation_scope:
+    schema_url: https://example.test/schema
+""",
+            )
+        )
+
+
+@pytest.mark.parametrize("value", ("false", "[]", "0", '""'))
+def test_package_expectations_must_be_a_mapping(
+    tmp_path: Path, value: str
+) -> None:
+    with pytest.raises(SpecError, match="expect: expected a mapping"):
+        load_spec(write(tmp_path, MINIMAL + f"\nexpect: {value}\n"))
 
 
 def test_runner_config_is_available_to_the_selected_runner(
