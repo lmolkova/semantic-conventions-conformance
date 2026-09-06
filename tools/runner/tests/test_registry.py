@@ -68,7 +68,10 @@ def test_a_git_url_is_fetched_once_into_the_cache(
     registry = local_registry(f"{_URL}@67dff024[model]")
 
     assert registry == (
-        tmp_path / "cache" / "semantic-conventions-genai-67dff024" / "model"
+        tmp_path
+        / "cache"
+        / "open-telemetry-semantic-conventions-genai-67dff024"
+        / "model"
     )
     assert registry.is_dir()
     assert local_registry(f"{_URL}@67dff024[model]") == registry
@@ -90,6 +93,23 @@ def test_a_ref_stays_one_directory_in_the_cache(tmp_path, monkeypatch) -> None:
     registry = local_registry(f"{_URL}@release/../../v1.0")
 
     assert registry.parent == tmp_path / "cache"
+
+
+def test_two_orgs_with_the_same_registry_name_do_not_share_a_checkout(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("SEMCONV_CACHE", str(tmp_path / "cache"))
+
+    def extract(url: str, target: Path, *, label: str) -> None:
+        del url, label
+        target.mkdir(parents=True)
+
+    monkeypatch.setattr(_registry, "_download_and_extract", extract)
+
+    theirs = local_registry("https://github.com/org-a/model.git@main")
+    ours = local_registry("https://github.com/org-b/model.git@main")
+
+    assert theirs != ours
 
 
 def test_a_url_that_is_not_on_github_says_so(tmp_path, monkeypatch) -> None:

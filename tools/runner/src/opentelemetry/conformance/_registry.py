@@ -104,9 +104,9 @@ def local_registry(value: str) -> Path:
         return Path(value)
     repo = declared.repo
     # No ref is the default branch, which is what GitHub serves for HEAD.
-    checkout = provision(
-        repo, declared.ref or "HEAD", label=repo.rpartition("/")[2]
-    )
+    # The whole org/name, so two registries with the same basename don't
+    # share a cache entry.
+    checkout = provision(repo, declared.ref or "HEAD", label=repo)
     return checkout / declared.sub_folder if declared.sub_folder else checkout
 
 
