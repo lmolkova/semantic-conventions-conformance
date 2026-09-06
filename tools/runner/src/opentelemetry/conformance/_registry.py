@@ -37,7 +37,7 @@ _GITHUB = "https://github.com/"
 # [<sub folder>]. See the --registry argument of any weaver command. The scheme
 # is what tells it apart from a local checkout named `<something>.git`.
 _GIT_REGISTRY = re.compile(
-    r"^(?P<url>[a-zA-Z][a-zA-Z0-9+.-]*://[^\s\[\]]+\.git)"
+    r"^(?P<url>[a-zA-Z][a-zA-Z0-9+.-]*://[^\s\[\]]+?\.git)"
     r"(?:@(?P<ref>[^\s\[\]]+))?"
     r"(?:\[(?P<sub_folder>[^\]]+)\])?$"
 )
@@ -93,7 +93,7 @@ def parse_git_registry(value: str) -> GitRegistry | None:
     return GitRegistry(**match.groupdict())
 
 
-def _local_registry(value: str) -> Path:
+def local_registry(value: str) -> Path:
     """A declared registry as a directory, fetching it when it is a git URL.
 
     Weaver takes a URL itself, but a domain's advice data is built by reading
