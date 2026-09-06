@@ -30,7 +30,6 @@ from ._registry import (
     WeaverNotInstalledError,
     cache_dir,
     check_weaver,
-    local_registry,
     provision,
     require_pin,
 )
@@ -80,7 +79,6 @@ __all__ = [
     "domain",
     "load_coverage_model",
     "load_spec",
-    "local_registry",
     "main",
     "provision",
     "require_pin",

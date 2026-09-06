@@ -21,6 +21,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from functools import cache
+from hashlib import sha256
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -92,7 +93,7 @@ def parse_git_registry(value: str) -> GitRegistry | None:
     return GitRegistry(**match.groupdict())
 
 
-def local_registry(value: str) -> Path:
+def _local_registry(value: str) -> Path:
     """A declared registry as a directory, fetching it when it is a git URL.
 
     Weaver takes a URL itself, but a domain's advice data is built by reading
@@ -104,9 +105,7 @@ def local_registry(value: str) -> Path:
         return Path(value)
     repo = declared.repo
     # No ref is the default branch, which is what GitHub serves for HEAD.
-    # The whole org/name, so two registries with the same basename don't
-    # share a cache entry.
-    checkout = provision(repo, declared.ref or "HEAD", label=repo)
+    checkout = provision(repo, declared.ref or "HEAD")
     return checkout / declared.sub_folder if declared.sub_folder else checkout
 
 
@@ -118,14 +117,15 @@ def cache_dir() -> Path:
     return Path.home() / ".cache" / "otel-conformance" / "semconv"
 
 
-def provision(repo: str, ref: str, *, label: str) -> Path:
+def provision(repo: str, ref: str) -> Path:
     """Fetch ``github.com/<repo>`` at ``ref`` into the cache; return its root.
 
-    ``label`` names the checkout in the cache and in log messages, so two
-    registries at the same ref don't collide. A completed fetch leaves a stamp
-    file, which is what makes this a no-op on every later run.
+    A completed fetch leaves a stamp file, which is what makes this a no-op on
+    every later run.
     """
-    target = cache_dir() / _safe_name(f"{label}-{ref}")
+    label = repo.rpartition("/")[2]
+    key = sha256(f"{repo}\0{ref}".encode()).hexdigest()
+    target = cache_dir() / key
     stamp = target / ".provisioned"
     if stamp.is_file():
         return target
@@ -134,11 +134,6 @@ def provision(repo: str, ref: str, *, label: str) -> Path:
     _download_and_extract(url, target, label=label)
     stamp.touch()
     return target
-
-
-def _safe_name(value: str) -> str:
-    """``value`` as one path component: a ref can hold slashes and worse."""
-    return re.sub(r"[^A-Za-z0-9._-]", "-", value)
 
 
 def _download_and_extract(url: str, target: Path, *, label: str) -> None:

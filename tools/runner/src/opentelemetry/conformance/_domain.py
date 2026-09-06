@@ -80,9 +80,7 @@ class Domain:
         registry at the same ref share one checkout and one resolved model
         instead of fetching identical content twice.
         """
-        return provision(
-            self.repo, self.ref, label=self.repo.rpartition("/")[2]
-        )
+        return provision(self.repo, self.ref)
 
     @property
     def registry(self) -> Path:
@@ -161,7 +159,9 @@ class Domain:
         registry = registry if registry is not None else self.registry
         advice_data = None
         if self.advice_data:
-            params = list(inspect.signature(self.advice_data).parameters.values())
+            params = list(
+                inspect.signature(self.advice_data).parameters.values()
+            )
             if len(params) >= 2 or any(
                 p.kind == inspect.Parameter.VAR_POSITIONAL for p in params
             ):
@@ -211,7 +211,9 @@ class Domain:
         # Read here rather than in the session, because whichever registry the
         # package ends up checked against is the one to reduce its run against.
         spec = spec or load_spec(Path(directory))
-        declared = spec.weaver.registry or (weaver.registry if weaver else None)
+        declared = spec.weaver.registry or (
+            weaver.registry if weaver else None
+        )
         override = (
             registry_path(
                 declared,

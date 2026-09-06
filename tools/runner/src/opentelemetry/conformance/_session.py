@@ -36,7 +36,7 @@ from ._env import (
     build_env,
     timeout_seconds,
 )
-from ._registry import check_weaver, local_registry, parse_git_registry
+from ._registry import _local_registry, check_weaver, parse_git_registry
 from ._server import Server
 from ._spec import (
     PackageSpec,
@@ -444,7 +444,7 @@ def registry_path(
     """
     resolved = Template(value).safe_substitute(variables)
     if parse_git_registry(resolved) is not None:
-        return local_registry(resolved)
+        return _local_registry(resolved)
     path = Path(resolved)
     return path if path.is_absolute() else directory / path
 
