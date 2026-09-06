@@ -152,7 +152,10 @@ def test_scope_expectation_is_rendered_beside_declared_policies(
         opened.spec.scenarios["inference"],
         spans=(
             SpanExpectation(
-                match=SpanMatch(attributes={"operation": "chat"}),
+                match=SpanMatch(
+                    attributes={"operation": "chat"},
+                    kind="SPAN_KIND_CLIENT",
+                ),
                 instrumentation_scope=InstrumentationScopeExpectation(
                     schema_url=AttributeMatcher(present=True)
                 ),
@@ -171,6 +174,7 @@ def test_scope_expectation_is_rendered_beside_declared_policies(
         ).read_text()
         assert '"schema_url": {"present": true}' in scope_policy
         assert '"operation": "chat"' in scope_policy
+        assert '"kind": "client"' in scope_policy
 
 
 def test_generated_scope_policy_does_not_replace_a_declared_policy(

@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from ._spans import span_kind
 from ._spec import (
     AttributeMatcher,
     InstrumentationScopeExpectation,
@@ -34,7 +35,7 @@ def render(
                 "match": {
                     "attributes": dict(expectation.match.attributes),
                     **(
-                        {"kind": expectation.match.kind}
+                        {"kind": span_kind(expectation.match.kind).lower()}
                         if expectation.match.kind is not None
                         else {}
                     ),

@@ -258,6 +258,9 @@ expect:
       present: true
 ```
 
+Package-wide checks apply to every emitted scope, including scopes from the
+SDK and dependency instrumentations.
+
 Exact checks belong to a matched signal because one package can emit telemetry
 from several scopes:
 
