@@ -5,6 +5,11 @@ runner: http-conformance
 instrumented_library: flask
 instrumentation_library: opentelemetry-instrumentation-flask
 
+expect:
+  instrumentation_scope:
+    schema_url:
+      present: true
+
 env:
   # Python's HTTP instrumentations still emit the pre-stable attributes by
   # default at 0.65b0 — `http.method`, `http.status_code`, `net.host.name` —

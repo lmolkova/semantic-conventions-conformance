@@ -68,5 +68,90 @@
       ]
     }
   },
-  "findings": []
+  "findings": [
+    {
+      "id": "instrumentation_scope_schema_url_missing",
+      "message": "Instrumentation scope 'io.opentelemetry.exporters.otlp-grpc' does not have schema_url.",
+      "signal_type": "instrumentation_scope",
+      "signal_name": "io.opentelemetry.exporters.otlp-grpc",
+      "context": {
+        "actual": "",
+        "expected": {
+          "present": true
+        }
+      }
+    },
+    {
+      "id": "instrumentation_scope_schema_url_missing",
+      "message": "Instrumentation scope 'io.opentelemetry.sdk.logs' does not have schema_url.",
+      "signal_type": "instrumentation_scope",
+      "signal_name": "io.opentelemetry.sdk.logs",
+      "context": {
+        "actual": "",
+        "expected": {
+          "present": true
+        }
+      }
+    },
+    {
+      "id": "instrumentation_scope_schema_url_missing",
+      "message": "Instrumentation scope 'io.opentelemetry.sdk.trace' does not have schema_url.",
+      "signal_type": "instrumentation_scope",
+      "signal_name": "io.opentelemetry.sdk.trace",
+      "context": {
+        "actual": "",
+        "expected": {
+          "present": true
+        }
+      }
+    },
+    {
+      "id": "instrumentation_scope_schema_url_missing",
+      "message": "Instrumentation scope 'org.apache.catalina.core.StandardEngine' does not have schema_url.",
+      "signal_type": "instrumentation_scope",
+      "signal_name": "org.apache.catalina.core.StandardEngine",
+      "context": {
+        "actual": "",
+        "expected": {
+          "present": true
+        }
+      }
+    },
+    {
+      "id": "instrumentation_scope_schema_url_missing",
+      "message": "Instrumentation scope 'org.apache.catalina.core.StandardService' does not have schema_url.",
+      "signal_type": "instrumentation_scope",
+      "signal_name": "org.apache.catalina.core.StandardService",
+      "context": {
+        "actual": "",
+        "expected": {
+          "present": true
+        }
+      }
+    },
+    {
+      "id": "instrumentation_scope_schema_url_missing",
+      "message": "Instrumentation scope 'org.apache.catalina.loader.WebappClassLoaderBase' does not have schema_url.",
+      "signal_type": "instrumentation_scope",
+      "signal_name": "org.apache.catalina.loader.WebappClassLoaderBase",
+      "context": {
+        "actual": "",
+        "expected": {
+          "present": true
+        }
+      }
+    },
+    {
+      "id": "instrumentation_scope_schema_url_missing",
+      "message": "Instrumentation scope 'org.apache.coyote.http11.Http11NioProtocol' does not have schema_url.",
+      "signal_type": "instrumentation_scope",
+      "signal_name": "org.apache.coyote.http11.Http11NioProtocol",
+      "context": {
+        "actual": "",
+        "expected": {
+          "present": true
+        }
+      }
+    }
+  ]
 }

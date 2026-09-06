@@ -5,6 +5,11 @@ runner: http-conformance
 instrumented_library: asgi
 instrumentation_library: opentelemetry-instrumentation-asgi
 
+expect:
+  instrumentation_scope:
+    schema_url:
+      present: true
+
 env:
   OTEL_SEMCONV_STABILITY_OPT_IN: http
 

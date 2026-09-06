@@ -4,6 +4,11 @@
 runner: http-conformance
 instrumented_library: node:http
 instrumentation_library: "@opentelemetry/instrumentation-http"
+
+expect:
+  instrumentation_scope:
+    schema_url:
+      present: true
 scenario_contract: ../../../../../../tools/http/test-client/contract.yaml
 
 setup: otel-conformance-js install

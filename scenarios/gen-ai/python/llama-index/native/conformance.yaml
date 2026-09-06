@@ -5,6 +5,11 @@ runner: genai-conformance
 instrumented_library: llama-index
 instrumentation_library: llama-index-observability-otel
 
+expect:
+  instrumentation_scope:
+    schema_url:
+      present: true
+
 server:
   run: genai-mock-server --port ${PORT}
 

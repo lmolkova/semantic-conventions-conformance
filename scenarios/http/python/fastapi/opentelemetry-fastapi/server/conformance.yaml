@@ -5,6 +5,11 @@ runner: http-conformance
 instrumented_library: fastapi
 instrumentation_library: opentelemetry-instrumentation-fastapi
 
+expect:
+  instrumentation_scope:
+    schema_url:
+      present: true
+
 env:
   OTEL_SEMCONV_STABILITY_OPT_IN: http
 

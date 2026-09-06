@@ -4,6 +4,11 @@
 runner: http-conformance
 instrumented_library: aiohttp
 instrumentation_library: opentelemetry-instrumentation-aiohttp-client
+
+expect:
+  instrumentation_scope:
+    schema_url:
+      present: true
 scenario_contract: ../../../../../../tools/http/test-client/contract.yaml
 
 env:

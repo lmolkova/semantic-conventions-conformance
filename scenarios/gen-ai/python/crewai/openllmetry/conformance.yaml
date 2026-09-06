@@ -5,6 +5,11 @@ runner: genai-conformance
 instrumented_library: crewai
 instrumentation_library: opentelemetry-instrumentation-crewai
 
+expect:
+  instrumentation_scope:
+    schema_url:
+      present: true
+
 server:
   run: genai-mock-server --port ${PORT}
 

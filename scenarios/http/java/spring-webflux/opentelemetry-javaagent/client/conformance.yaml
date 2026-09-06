@@ -4,6 +4,11 @@
 runner: http-conformance
 instrumented_library: spring-webflux
 instrumentation_library: io.opentelemetry.javaagent:opentelemetry-javaagent
+
+expect:
+  instrumentation_scope:
+    schema_url:
+      present: true
 scenario_contract: ../../../../../../tools/http/test-client/contract.yaml
 
 env:

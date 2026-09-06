@@ -5,6 +5,11 @@ runner: http-conformance
 instrumented_library: tomcat
 instrumentation_library: io.opentelemetry.javaagent:opentelemetry-javaagent
 
+expect:
+  instrumentation_scope:
+    schema_url:
+      present: true
+
 env:
   # Keep Java runtime metrics out of this HTTP-only conformance report.
   OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_ENABLED: "false"
