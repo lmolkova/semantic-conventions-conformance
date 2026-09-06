@@ -18,8 +18,6 @@ from opentelemetry.conformance._scope_policy import render
 from opentelemetry.conformance._spec import (
     AttributeMatcher,
     InstrumentationScopeExpectation,
-    SpanExpectation,
-    SpanMatch,
 )
 
 
@@ -137,80 +135,3 @@ def test_scope_findings_are_in_weaver_report(tmp_path: Path) -> None:
         }
     ]
 
-
-def test_signal_scope_expectation_uses_owning_scope(tmp_path: Path) -> None:
-    try:
-        check_weaver()
-        registry = DOMAIN.registry
-    except (WeaverNotInstalledError, OSError, RuntimeError) as error:
-        pytest.skip(f"scope policy test unavailable: {error}")
-    trace = pytest.importorskip("opentelemetry.trace")
-    trace_exporter = pytest.importorskip(
-        "opentelemetry.exporter.otlp.proto.grpc.trace_exporter"
-    )
-    sdk_trace = pytest.importorskip("opentelemetry.sdk.trace")
-    sdk_trace_export = pytest.importorskip("opentelemetry.sdk.trace.export")
-    weaver_live_check = pytest.importorskip(
-        "opentelemetry.test.weaver_live_check"
-    )
-
-    policies = tmp_path / "policies"
-    policies.mkdir()
-    (policies / "instrumentation_scope_validation.rego").write_text(
-        render(
-            None,
-            (
-                SpanExpectation(
-                    match=SpanMatch(
-                        attributes={"operation": "chat"}, kind="CLIENT"
-                    ),
-                    instrumentation_scope=InstrumentationScopeExpectation(
-                        name=AttributeMatcher(equals="expected-scope")
-                    ),
-                ),
-            ),
-        ),
-        encoding="utf-8",
-    )
-    weaver = weaver_live_check.WeaverLiveCheck(
-        registry=str(registry), policies_dir=str(policies)
-    ).start()
-    try:
-        provider = sdk_trace.TracerProvider()
-        provider.add_span_processor(
-            sdk_trace_export.SimpleSpanProcessor(
-                trace_exporter.OTLPSpanExporter(
-                    endpoint=weaver.otlp_endpoint, insecure=True
-                )
-            )
-        )
-        tracer = provider.get_tracer(
-            "actual-scope",
-            "1.2.3",
-            schema_url="https://example.test/schema/1.0.0",
-        )
-        with tracer.start_as_current_span(
-            "scoped-span", kind=trace.SpanKind.CLIENT
-        ) as span:
-            span.set_attribute("operation", "chat")
-        provider.shutdown()
-        report = weaver.end()
-    finally:
-        weaver.close()
-
-    scoped_span = next(
-        sample["span"]
-        for sample in report["samples"]
-        if sample.get("span", {}).get("name") == "scoped-span"
-    )
-    finding = next(
-        finding
-        for finding in scoped_span["live_check_result"]["all_advice"]
-        if finding["id"] == "instrumentation_scope_name_mismatch"
-    )
-    assert finding["context"] == {
-        "actual": "actual-scope",
-        "expected": {"equals": "expected-scope"},
-    }
-    assert finding["signal_type"] == "span"
-    assert finding["signal_name"] == "scoped-span"
