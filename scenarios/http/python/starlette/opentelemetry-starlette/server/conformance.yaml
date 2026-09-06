@@ -5,6 +5,11 @@ runner: http-conformance
 instrumented_library: starlette
 instrumentation_library: opentelemetry-instrumentation-starlette
 
+expect:
+  instrumentation_scope:
+    schema_url:
+      present: true
+
 env:
   OTEL_SEMCONV_STABILITY_OPT_IN: http
 

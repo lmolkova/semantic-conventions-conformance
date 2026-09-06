@@ -5,6 +5,11 @@ runner: genai-conformance
 instrumented_library: cohere
 instrumentation_library: openinference-instrumentation-cohere
 
+expect:
+  instrumentation_scope:
+    schema_url:
+      present: true
+
 server:
   run: genai-mock-server --port ${PORT}
 

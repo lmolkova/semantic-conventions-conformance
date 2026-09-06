@@ -5,6 +5,11 @@ runner: genai-conformance
 instrumented_library: agno
 instrumentation_library: openinference-instrumentation-agno
 
+expect:
+  instrumentation_scope:
+    schema_url:
+      present: true
+
 server:
   run: genai-mock-server --port ${PORT}
 

@@ -6,6 +6,11 @@ runner_config:
   backend: postgresql
 instrumented_library: jdbc
 instrumentation_library: io.opentelemetry.instrumentation:opentelemetry-jdbc
+
+expect:
+  instrumentation_scope:
+    schema_url:
+      present: true
 scenario_contract: ../../../../contracts/postgresql.yaml
 
 env:

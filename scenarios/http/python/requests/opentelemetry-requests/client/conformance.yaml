@@ -4,6 +4,11 @@
 runner: http-conformance
 instrumented_library: requests
 instrumentation_library: opentelemetry-instrumentation-requests
+
+expect:
+  instrumentation_scope:
+    schema_url:
+      present: true
 scenario_contract: ../../../../../../tools/http/test-client/contract.yaml
 
 env:

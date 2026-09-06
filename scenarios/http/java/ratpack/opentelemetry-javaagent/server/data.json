@@ -68,5 +68,54 @@
       ]
     }
   },
-  "findings": []
+  "findings": [
+    {
+      "id": "instrumentation_scope_schema_url_missing",
+      "message": "Instrumentation scope 'io.netty.resolver.dns.DnsServerAddressStreamProviders' does not have schema_url.",
+      "signal_type": "instrumentation_scope",
+      "signal_name": "io.netty.resolver.dns.DnsServerAddressStreamProviders",
+      "context": {
+        "actual": "",
+        "expected": {
+          "present": true
+        }
+      }
+    },
+    {
+      "id": "instrumentation_scope_schema_url_missing",
+      "message": "Instrumentation scope 'io.opentelemetry.exporters.otlp-grpc' does not have schema_url.",
+      "signal_type": "instrumentation_scope",
+      "signal_name": "io.opentelemetry.exporters.otlp-grpc",
+      "context": {
+        "actual": "",
+        "expected": {
+          "present": true
+        }
+      }
+    },
+    {
+      "id": "instrumentation_scope_schema_url_missing",
+      "message": "Instrumentation scope 'io.opentelemetry.sdk.logs' does not have schema_url.",
+      "signal_type": "instrumentation_scope",
+      "signal_name": "io.opentelemetry.sdk.logs",
+      "context": {
+        "actual": "",
+        "expected": {
+          "present": true
+        }
+      }
+    },
+    {
+      "id": "instrumentation_scope_schema_url_missing",
+      "message": "Instrumentation scope 'io.opentelemetry.sdk.trace' does not have schema_url.",
+      "signal_type": "instrumentation_scope",
+      "signal_name": "io.opentelemetry.sdk.trace",
+      "context": {
+        "actual": "",
+        "expected": {
+          "present": true
+        }
+      }
+    }
+  ]
 }

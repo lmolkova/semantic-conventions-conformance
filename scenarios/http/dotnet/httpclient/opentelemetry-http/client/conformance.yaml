@@ -4,6 +4,11 @@
 runner: http-conformance
 instrumented_library: System.Net.Http
 instrumentation_library: OpenTelemetry.Instrumentation.Http
+
+expect:
+  instrumentation_scope:
+    schema_url:
+      present: true
 scenario_contract: ../../../../../../tools/http/test-client/contract.yaml
 
 # Publishing here rather than in `run:` keeps the toolchain out of the measured
