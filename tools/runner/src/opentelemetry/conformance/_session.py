@@ -68,6 +68,7 @@ _SCENARIO_TIMEOUT = ("OTEL_CONFORMANCE_SCENARIO_TIMEOUT", 600.0)
 # the data file is meant to be committed and diffed.
 DEFAULT_REPORT_DIR = Path("output") / "weaver-reports"
 DEFAULT_DATA_FILE = Path("data.json")
+_SCOPE_POLICY_NAME = "instrumentation_scope_validation.rego"
 
 # Fallback only: a config declared by the caller or the package replaces it.
 RUNNER_WEAVER_DEFAULTS = WeaverSpec(
@@ -267,7 +268,11 @@ class ConformanceSession:
         declared = (
             self._resolve_path(weaver.policies) if weaver.policies else None
         )
-        if scenario.instrumentation_scope is None:
+        has_signal_scope = any(
+            span.instrumentation_scope is not None
+            for span in scenario.spans or ()
+        )
+        if scenario.instrumentation_scope is None and not has_signal_scope:
             yield declared
             return
 
@@ -280,8 +285,16 @@ class ConformanceSession:
                         shutil.copy(policy, policies / policy.name)
                 else:
                     shutil.copy(source, policies / source.name)
-            (policies / "instrumentation_scope_validation.rego").write_text(
-                render_scope_policy(scenario.instrumentation_scope),
+            generated = policies / _SCOPE_POLICY_NAME
+            if generated.exists():
+                raise SpecError(
+                    f"declared advice policy conflicts with generated policy: "
+                    f"{_SCOPE_POLICY_NAME}"
+                )
+            generated.write_text(
+                render_scope_policy(
+                    scenario.instrumentation_scope, scenario.spans
+                ),
                 encoding="utf-8",
             )
             yield str(policies)

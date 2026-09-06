@@ -8,7 +8,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from ._spec import AttributeMatcher, InstrumentationScopeExpectation
+from ._spec import (
+    AttributeMatcher,
+    InstrumentationScopeExpectation,
+    SpanExpectation,
+)
 
 _TEMPLATE = (
     Path(__file__).parent
@@ -18,21 +22,50 @@ _TEMPLATE = (
 _MARKER = "__INSTRUMENTATION_SCOPE_EXPECTATION__"
 
 
-def render(expectation: InstrumentationScopeExpectation) -> str:
+def render(
+    global_expectation: InstrumentationScopeExpectation | None,
+    spans: tuple[SpanExpectation, ...] | None,
+) -> str:
     """Return a policy containing exactly the fields this scenario checks."""
+    rendered = {
+        "global": _fields(global_expectation),
+        "spans": [
+            {
+                "match": {
+                    "attributes": dict(expectation.match.attributes),
+                    **(
+                        {"kind": expectation.match.kind}
+                        if expectation.match.kind is not None
+                        else {}
+                    ),
+                },
+                "scope": _fields(expectation.instrumentation_scope),
+            }
+            for expectation in spans or ()
+            if expectation.instrumentation_scope is not None
+        ],
+    }
+
+    return _TEMPLATE.read_text(encoding="utf-8").replace(
+        _MARKER, json.dumps(rendered, sort_keys=True)
+    )
+
+
+def _fields(
+    expectation: InstrumentationScopeExpectation | None,
+) -> dict[str, dict[str, object]]:
     fields: dict[str, dict[str, object]] = {}
-    if expectation.name is not None:
-        fields["name"] = {"equals": expectation.name}
+    if expectation is None:
+        return fields
     for name, matcher in (
+        ("name", expectation.name),
         ("version", expectation.version),
         ("schema_url", expectation.schema_url),
     ):
         if matcher is not None:
             fields[name] = _matcher(matcher)
 
-    return _TEMPLATE.read_text(encoding="utf-8").replace(
-        _MARKER, json.dumps(fields, sort_keys=True)
-    )
+    return fields
 
 
 def _matcher(matcher: AttributeMatcher) -> dict[str, object]:

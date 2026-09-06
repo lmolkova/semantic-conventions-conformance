@@ -21,7 +21,7 @@ from opentelemetry.conformance._spec import (
 )
 
 
-def test_scope_mismatch_is_in_weaver_report(tmp_path: Path) -> None:
+def test_scope_findings_are_in_weaver_report(tmp_path: Path) -> None:
     try:
         check_weaver()
         registry = DOMAIN.registry
@@ -34,7 +34,8 @@ def test_scope_mismatch_is_in_weaver_report(tmp_path: Path) -> None:
         render(
             InstrumentationScopeExpectation(
                 schema_url=AttributeMatcher(present=True)
-            )
+            ),
+            None,
         ),
         encoding="utf-8",
     )
@@ -55,6 +56,13 @@ def test_scope_mismatch_is_in_weaver_report(tmp_path: Path) -> None:
                         "name": "missing-schema",
                         "version": "1.0.0",
                         "schema_url": "",
+                        "attributes": [],
+                    }
+                },
+                {
+                    "span": {
+                        "name": "missing-scope",
+                        "kind": "client",
                         "attributes": [],
                     }
                 },
@@ -105,3 +113,24 @@ def test_scope_mismatch_is_in_weaver_report(tmp_path: Path) -> None:
     assert scopes["missing-schema"][0]["message"] == (
         "Instrumentation scope 'missing-schema' does not have schema_url."
     )
+    unscoped_span = next(
+        sample["span"]
+        for sample in report["samples"]
+        if sample.get("span", {}).get("name") == "missing-scope"
+    )
+    assert unscoped_span["live_check_result"]["all_advice"] == [
+        {
+            "context": {
+                "actual": None,
+                "expected": {"present": True},
+            },
+            "id": "instrumentation_scope_schema_url_missing",
+            "level": "violation",
+            "message": (
+                "Instrumentation scope '<missing>' does not have schema_url."
+            ),
+            "signal_name": "missing-scope",
+            "signal_type": "span",
+            "type": "PolicyFinding",
+        }
+    ]
