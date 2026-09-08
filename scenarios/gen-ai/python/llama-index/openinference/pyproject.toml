@@ -18,4 +18,4 @@ dependencies = [
 
 [tool.uv]
 package = false
-override-dependencies = ["llama-index-llms-openai==0.7.10"]
+override-dependencies = ["llama-index-llms-openai==0.8.1"]
