@@ -19,6 +19,7 @@ against expectations declared in YAML.
 | [`tools/ruby/`](tools/ruby) | what every Ruby scenario shares: the launcher that installs and runs its locked bundle, plus scenario lifecycle and SDK helpers |
 | [`tools/dotnet/`](tools/dotnet) | what every .NET scenario shares: the launcher that builds and runs one, the shutdown protocol every scenario needs, and the SDK bootstrap the ones measuring library instrumentation own |
 | [`tools/php/`](tools/php) | what every PHP scenario shares: the portable Composer and built-in-server launcher, plus environment support |
+| [`tools/go/`](tools/go) | what every Go scenario shares: the launcher that builds and runs a scenario, the shutdown protocol, and the SDK bootstrap |
 | [`scenarios/gen-ai/`](scenarios/gen-ai) | the GenAI scenarios and the coverage they produce |
 | [`scenarios/database/`](scenarios/database) | the database scenarios and the coverage they produce |
 | [`scenarios/http/`](scenarios/http) | the HTTP scenarios and the coverage they produce |
