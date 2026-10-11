@@ -18,7 +18,7 @@ The conformance runner starts it for you: a directory declares it under
 
 | Blueprint | Endpoints |
 | --- | --- |
-| `anthropic` | `/v1/messages`, including tool use, streaming and compaction |
+| `anthropic` | `/v1/messages`, including client tools, non-streaming web search, streaming text and compaction |
 | `anthropic_agents`, `mistral_agents` | hosted-agent creation |
 | `assistants` | OpenAI Assistants, threads and runs |
 | `bedrock` | `converse`, `converse-stream`, `invoke` |
@@ -27,7 +27,7 @@ The conformance runner starts it for you: a directory declares it under
 | `google_genai` | Gemini `generateContent` / streaming, and the Vertex `projects/…` paths |
 | `mistral` | chat completions, FIM and embeddings, under `/mistral/v1/…` |
 | `ollama` | `/api/chat`, including tool use and NDJSON streaming, and `/api/embed` |
-| `openai` | chat completions, embeddings and the Responses API, under `/v1/…`, the Azure `/openai/deployments/<deployment>/…` paths, and bare paths |
+| `openai` | chat completions, embeddings and the Responses API (including non-streaming web search), under `/v1/…`, the Azure `/openai/deployments/<deployment>/…` paths, and bare paths |
 
 Behaviour follows the request rather than configuration: `stream: true` gets an
 SSE response, offered `tools` get a tool call, and the requested model is
