@@ -22,7 +22,7 @@ The conformance runner starts it for you: a directory declares it under
 | `anthropic_agents`, `mistral_agents` | hosted-agent creation |
 | `assistants` | OpenAI Assistants, threads and runs |
 | `bedrock` | `converse`, `converse-stream`, `invoke` |
-| `bedrock_agent`, `bedrock_agentcore` | agent invocation and the memory APIs |
+| `bedrock_agent`, `bedrock_agentcore` | agent invocation, knowledge-base retrieval/generation (including streaming), and the memory APIs |
 | `cohere` | `/v1` and `/v2` chat and embed |
 | `google_genai` | Gemini `generateContent` / streaming, and the Vertex `projects/…` paths |
 | `mistral` | chat completions, FIM and embeddings, under `/mistral/v1/…` |
