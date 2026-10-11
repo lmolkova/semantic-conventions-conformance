@@ -16,7 +16,7 @@ and supplies its URL as `${MOCK_SERVER_URL}`.
 
 | Blueprint | Endpoints |
 | --- | --- |
-| `anthropic` | `/v1/messages`, including tool use, streaming and compaction |
+| `anthropic` | `/v1/messages`, including client tools, non-streaming web search, streaming text and compaction |
 | `anthropic_agents`, `mistral_agents` | hosted-agent creation |
 | `assistants` | OpenAI Assistants, threads and runs |
 | `bedrock` | `converse`, `converse-stream`, `invoke` |
@@ -25,7 +25,7 @@ and supplies its URL as `${MOCK_SERVER_URL}`.
 | `google_genai` | Gemini and Vertex content generation, code execution, and interaction creation/retrieval with Google Search |
 | `mistral` | chat completions, FIM and embeddings, under `/mistral/v1/…` |
 | `ollama` | `/api/chat`, including tool use and NDJSON streaming, and `/api/embed` |
-| `openai` | chat completions, embeddings and the Responses API, under `/v1/…`, the Azure `/openai/deployments/<deployment>/…` paths, and bare paths |
+| `openai` | chat completions, embeddings and the Responses API (including non-streaming web search), under `/v1/…`, the Azure `/openai/deployments/<deployment>/…` paths, and bare paths |
 
 Responses depend on the request's model, tools, and streaming options. Most
 endpoints return fixed IDs and token counts; resource-creation endpoints may
