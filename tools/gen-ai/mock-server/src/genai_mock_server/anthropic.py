@@ -258,7 +258,7 @@ def messages():
             },
             *resp["content"],
         ]
-        resp["usage"]["server_tool_use"] = {"web_search_requests": 1}
+        resp["usage"]["server_tool_use"] = {"web_fetch_requests": 0, "web_search_requests": 1}
         return resp
     if body.get("stream"):
         return Response(_stream_message(body), mimetype="text/event-stream")

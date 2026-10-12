@@ -91,7 +91,7 @@ def test_anthropic_web_search_links_its_result(
         }
     ]
     assert text["type"] == "text"
-    assert result["usage"]["server_tool_use"]["web_search_requests"] == 1
+    assert result["usage"]["server_tool_use"] == {"web_fetch_requests": 0, "web_search_requests": 1}
 
 
 def test_anthropic_custom_function_named_web_search_stays_a_client_tool(
