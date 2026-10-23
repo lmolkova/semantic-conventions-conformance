@@ -118,6 +118,7 @@ classes than the row, the row says so.
 | `bedrock` | Bedrock Converse: inference, streaming, tool_calling | `opentelemetry-botocore`, `openinference`, `openllmetry` |
 | `cohere` | inference, streaming, tool_calling, structured_output, multimodal, embeddings | `openinference`<br>no `openllmetry`: does not support cohere v7 |
 | `crewai` | workflow, invoke_agent, automatic_tool_calling | `openinference`, `openllmetry` |
+| `dspy` | invoke_agent, automatic_tool_calling, retrieval. invoke_agent is a `dspy.ReAct` run with no tools: ReAct accepts an empty list and only adds its built-in `finish` step | `opentelemetry-dspy`, `openinference`<br>no `openllmetry` for this library |
 | `google-adk` | invoke_agent, automatic_tool_calling | `native`, `openinference`<br>no `openllmetry` for this library |
 | `google-genai` | every client class, plus automatic_tool_calling | `opentelemetry-google-genai`, `openinference`, `openllmetry` |
 | `groq` | inference, streaming, tool_calling, structured_output, multimodal, embeddings | `openinference`, `openllmetry` |
