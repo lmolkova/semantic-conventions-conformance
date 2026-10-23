@@ -134,8 +134,8 @@ classes than the row, the row says so.
 | `strands-agents` | invoke_agent, automatic_tool_calling | `native`<br>no `openinference`: the package is a span processor over the library's own spans, not an instrumentation of it, so it adds no coverage<br>no `openllmetry` for this library |
 | `together` | inference, streaming, tool_calling, structured_output, multimodal, embeddings | `openinference`<br>no `openllmetry`: not compatible with together 2 |
 
-The conventions also cover retrieval, memory and planning. No instrumentation
-here emits them, so there is no class for them yet.
+The conventions also cover memory and planning. No instrumentation here emits
+them, so there is no class for them yet.
 
 Each class is one file, and each file gets its own weaver report.
 
