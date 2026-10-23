@@ -12,6 +12,9 @@ env:
   OPENAI_BASE_URL: ${MOCK_SERVER_URL}/v1
   OPENAI_API_KEY: test_openai_api_key
   OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: SPAN_AND_EVENT
+  # dspy imports LiteLLM, which downloads its model price map at import.
+  # Pin the map to the locked LiteLLM version so runs stay off the network.
+  LITELLM_LOCAL_MODEL_COST_MAP: "True"
 
 scenarios:
   invoke_agent:

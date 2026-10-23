@@ -1735,24 +1735,24 @@ def test_chat_sentinels_only_read_the_last_user_message(client, marker, stream):
 # dspy's ChatAdapter lists output fields in the system prompt and reads each
 # back from between [[ ## <field> ## ]] markers.
 DSPY_REACT_SYSTEM = """Your input fields are:
-1. `question` (str): 
+1. `question` (str):
 2. `trajectory` (str):
 Your output fields are:
-1. `next_thought` (str): 
-2. `next_tool_name` (Literal['get_weather', 'finish']): 
+1. `next_thought` (str):
+2. `next_tool_name` (Literal['get_weather', 'finish']):
 3. `next_tool_args` (dict[str, Any]):
 All interactions will be structured in the following way, with the appropriate values filled in.
 
-In adhering to this structure, your objective is: 
+In adhering to this structure, your objective is:
         (1) get_weather, whose description is <desc>Get the current weather in a given location.</desc>. It takes arguments {'location': {'type': 'string'}}.
         (2) finish, whose description is <desc>Marks the task as complete.</desc>. It takes arguments {}.
 """
 
 DSPY_EXTRACT_SYSTEM = """Your input fields are:
-1. `question` (str): 
+1. `question` (str):
 2. `trajectory` (str):
 Your output fields are:
-1. `reasoning` (str): 
+1. `reasoning` (str):
 2. `answer` (str):
 All interactions will be structured in the following way, with the appropriate values filled in.
 """
