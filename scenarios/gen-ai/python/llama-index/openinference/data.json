@@ -1,5 +1,16 @@
 {
   "spans": {
+    "gen_ai.client.inference": [
+      "gen_ai.input.messages",
+      "gen_ai.operation.name",
+      "gen_ai.output.messages",
+      "gen_ai.provider.name",
+      "gen_ai.request.model",
+      "gen_ai.response.finish_reasons",
+      "gen_ai.tool.definitions",
+      "gen_ai.usage.input_tokens",
+      "gen_ai.usage.output_tokens"
+    ],
     "gen_ai.embeddings.client": [
       "gen_ai.embeddings.dimension.count",
       "gen_ai.operation.name",
@@ -12,17 +23,6 @@
       "gen_ai.tool.description",
       "gen_ai.tool.name",
       "gen_ai.tool.type"
-    ],
-    "gen_ai.inference.client": [
-      "gen_ai.input.messages",
-      "gen_ai.operation.name",
-      "gen_ai.output.messages",
-      "gen_ai.provider.name",
-      "gen_ai.request.model",
-      "gen_ai.response.finish_reasons",
-      "gen_ai.tool.definitions",
-      "gen_ai.usage.input_tokens",
-      "gen_ai.usage.output_tokens"
     ],
     "gen_ai.retrieval.client": [
       "gen_ai.operation.name",
