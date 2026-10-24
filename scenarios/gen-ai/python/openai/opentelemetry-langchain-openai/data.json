@@ -19,8 +19,11 @@
       "gen_ai.response.model",
       "gen_ai.response.time_to_first_chunk",
       "gen_ai.tool.definitions",
+      "gen_ai.usage.cache_read.input_tokens",
+      "gen_ai.usage.cache_write.input_tokens",
       "gen_ai.usage.input_tokens",
-      "gen_ai.usage.output_tokens"
+      "gen_ai.usage.output_tokens",
+      "gen_ai.usage.reasoning.output_tokens"
     ],
     "gen_ai.invoke_workflow.internal": [
       "gen_ai.operation.name",
@@ -47,8 +50,11 @@
       "gen_ai.response.model",
       "gen_ai.response.time_to_first_chunk",
       "gen_ai.tool.definitions",
+      "gen_ai.usage.cache_read.input_tokens",
+      "gen_ai.usage.cache_write.input_tokens",
       "gen_ai.usage.input_tokens",
-      "gen_ai.usage.output_tokens"
+      "gen_ai.usage.output_tokens",
+      "gen_ai.usage.reasoning.output_tokens"
     ]
   },
   "metrics": {
