@@ -20,6 +20,8 @@
 #      `invoke_agent` is the one operation whose manifest also depends on
 #      span kind: semconv defines separate internal (same-process) and
 #      client (remote) spans, and only the client span carries server.*.
+#      Response-derived attributes (`gen_ai.response.*`, `gen_ai.usage.*`,
+#      `gen_ai.embeddings.dimension.count`) are not expected on error spans.
 #
 # The "set when known" Recommended subset (sampling parameters like
 # `frequency_penalty`, `max_tokens`; provider-side caches; conditionally-
@@ -193,6 +195,19 @@ deny contains _span_finding(
 	expected := _expected_for_op(op, input.sample.span.kind)
 	some attr_name in expected
 	not _has_attr(input.sample.span, attr_name)
+	not _skipped_on_error(input.sample.span, attr_name)
+}
+
+# A failed call has no response to read these from.
+_response_derived(attr) if startswith(attr, "gen_ai.response.")
+
+_response_derived(attr) if startswith(attr, "gen_ai.usage.")
+
+_response_derived(attr) if attr == "gen_ai.embeddings.dimension.count"
+
+_skipped_on_error(span, attr) if {
+	span.status.code == "error"
+	_response_derived(attr)
 }
 
 # ─── Per-operation span kind (violation) ────────────────────────────────────
